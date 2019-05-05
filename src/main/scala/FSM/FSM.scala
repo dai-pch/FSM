@@ -1,7 +1,7 @@
 package libpc.FSM
 
 import chisel3._
-import scala.collection.mutable.Stack
+//import scala.collection.mutable.Stack
 
 class FSM {
   type actionType = () => Unit
@@ -9,22 +9,36 @@ class FSM {
 
   val desc = new FSMDescription()
   // for FSM construction
-  def state(stateName: String)(action: actionType): StateContext = {
+  def state(stateName: String): StateContext = {
     val state = desc.findOrInsert(stateName)
-    state.actionList += action
     new StateContext(state)
   }
-  def entryState(stateName: String)(action: actionType): StateContext = {
-    if (desc.entryState.isEmpty) {
+  def entryState(stateName: String): StateContext = {
+    if (desc.entryState.nonEmpty) {
       throw new MultipleEntryException
     }
     val state = desc.findOrInsert(stateName)
     desc.entryState = Some(state)
-    state.actionList += action
     new StateContext(state)
   }
 
-  class StateContext(val node: GeneralState) {
+  class StateContext(val node: BaseState) {
+    private def toTikState(): Option[TikState] = {
+      if (!node.isInstanceOf[TikState])
+        None
+      else
+        Some(node.asInstanceOf[TikState])
+    }
+    private def addAct(action: desc.actionType): Unit = {
+      val state = toTikState() match {
+        case None => assert(false, "Can not add actions into pseudo state.")
+        case Some(s) => s.actionList += action
+      }
+    }
+    def act(c: => Unit): StateContext = {
+      addAct(() => c)
+      this
+    }
     def when(cond: condType): TransferContext = {
       new TransferContext(this, Some(cond))
     }
@@ -53,14 +67,11 @@ class FSM {
 }
 
 object FSM {
-  def apply(content: () => Unit): FSM = {
-    val fsm = new FSM {
-      content()
-    }
+  def apply(fsm: FSM): FSM = {
     val desc = fsm.desc
-    val compiler = IdleFSMCompiler()
+    val compiler = IdleFSMCompiler
     val compiled = compiler.compile(desc)
-    compiled.instantiate()
+    Emitter(compiled)
     fsm
   }
 }
