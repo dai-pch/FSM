@@ -3,22 +3,29 @@ package libpc.FSM
 import chisel3._
 //import scala.collection.mutable.Stack
 
-class FSM extends FSMBase {
+class ControlFlow extends FSMBase {
   type actionType = () => Unit
   type condType = desc.condType
 
+  // for state record
+  var curState: Option[BaseState] = None
   // for FSM construction
-  def state(stateName: String): StateContext = {
-    val state = desc.findOrInsert(stateName)
-    new StateContext(state)
-  }
-  def entryState(stateName: String): StateContext = {
+  def start(stateName: String): StateContext = {
     if (desc.entryState.nonEmpty) {
       throw new MultipleEntryException
     }
     val state = desc.findOrInsert(stateName)
     desc.entryState = Some(state)
     new StateContext(state)
+  }
+  def state(stateName: String): StateContext = {
+    val state = desc.findOrInsert(stateName)
+    new StateContext(state)
+  }
+
+  // help function
+  private def gen_name(): String = {
+
   }
 
   class StateContext(val node: BaseState) {
