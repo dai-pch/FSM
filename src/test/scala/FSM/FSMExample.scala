@@ -25,7 +25,7 @@ class CFExample extends Module {
       io.out := true.B
     }.tag("tag1")
 
-    cf_run {
+    run {
       tik {
         io.out := false.B
       }
@@ -34,24 +34,22 @@ class CFExample extends Module {
       }
     }.until(io.in)
 
-    cf_while(!io.in) {
+    loop(!io.in) {
       tik {
         io.out := false.B
       }
     }
 
-    cf_if(io.in) {
+    branch(io.in) {
       tik {
 
       }
-    }
-    cf_elif(!io.in) {
+    } or_branch(!io.in) {
       tik {
 
       }
-    }
-    cf_else {
-      branch("tag1")
+    } or {
+      goto("tag1")
     }
 
   }
@@ -63,7 +61,7 @@ class FSMExample extends Module {
     val output = Output(new Bundle with FSM1Output)
   })
 
-  val fsm = new FSM {
+  val fsm = FSM(new FSM {
     entryState("Idle")
       .act {
         io.output.z_o := false.B
@@ -83,7 +81,7 @@ class FSMExample extends Module {
       }
       .when(!io.input.w_i).transferTo("Idle")
       .otherwise.transferTo("s1")
-  }
+  })
 }
 
 object FSMMain extends App {
