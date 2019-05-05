@@ -22,40 +22,44 @@ abstract class DirectedGraph[KeyType] {
 
 abstract class BaseState() extends BaseNode {
   override var edgeList = new mutable.ArrayBuffer[BaseTransfer]()
-  val stateName: String
+  val stateName: String = ""
 }
 
-case class GeneralState[-InputType <: Data, -OutputType <: Data](stateName: String) extends BaseState{
-  type condType = InputType => Bool
-  type actionType = (InputType, OutputType) => Unit
+abstract class TikState() extends BaseState {
+  type actionType = () => Unit
   val actionList = new mutable.ArrayBuffer[actionType]()
 }
+abstract class PseudoState() extends BaseState {}
+
+case class GeneralState(override val stateName: String) extends TikState {}
 //  class StartState() extends BaseState {}
-case object EndState extends BaseState {
-  val stateName = "_EndState"
+case object EndState extends PseudoState {
+  override val stateName = "_EndState"
 }
 
-abstract class BaseTransfer() extends BaseEdge {}
-case class ConditionalTransfer[-InputType <: Data](source: BaseState, destination: BaseState, cond: (InputType => Bool) = ((_:InputType) => (true.B))) extends BaseTransfer {}
+abstract class BaseTransfer extends BaseEdge {
+  def source: BaseState
+  def destination: BaseState
+}
+case class ConditionalTransfer(source: BaseState, destination: BaseState, val cond: Bool) extends BaseTransfer {}
 case class UnconditionalTransfer(source: BaseState, destination: BaseState) extends BaseTransfer {}
 
 trait Copy[A] {
   def copy: A
 }
 
-class FSMDescription[InputType <: Data, OutputType <: Data]() extends DirectedGraph with Cloneable {
-  type NodeType = BaseState
-  type GeneralNode = GeneralState[InputType, OutputType]
-  type EdgeType = BaseTransfer
-  type condType = InputType => Bool
-  type actionType = (InputType, OutputType) => Unit
+class FSMDescription() extends DirectedGraph with Cloneable {
+  override type NodeType = BaseState
+  override type EdgeType = BaseTransfer
+  type actionType = () => Unit
+  type condType = Bool
 
   // Graph properties
-  val nodeList = new mutable.HashSet[GeneralNode]()
+  val nodeList = new mutable.HashSet[NodeType]()
   var entryState: Option[NodeType] = None
-  val defaultAction = new mutable.ArrayBuffer[actionType]()
+//  val defaultAction = new mutable.ArrayBuffer[actionType]()
   // compile info
-  var encode: Map[BaseState, Int] = Map()
+  var encode: Map[NodeType, Int] = Map()
   var state_width: Int = 0
   // class methods
   def traverseNode(func: (NodeType => Unit)): Unit = {
@@ -67,15 +71,15 @@ class FSMDescription[InputType <: Data, OutputType <: Data]() extends DirectedGr
     traverseNode((node: NodeType) => node.edgeList.map(func(_)))
   }
   def copy() = {
-    val cp = new FSMDescription[InputType, OutputType]()
+    val cp = new FSMDescription()
     cp.nodeList ++= nodeList
     cp.entryState = entryState
-    cp.defaultAction ++= defaultAction
+//    cp.defaultAction ++= defaultAction
     cp.encode = encode
     cp.state_width = state_width
     cp
   }
-  def conditionalTransferTo(src: BaseState, dest: BaseState, cond: condType): ConditionalTransfer[InputType] = {
+  def conditionalTransferTo(src: BaseState, dest: BaseState, cond: condType): ConditionalTransfer = {
     val e = ConditionalTransfer(src, dest, cond)
     src.edgeList += e
     e
@@ -85,11 +89,11 @@ class FSMDescription[InputType <: Data, OutputType <: Data]() extends DirectedGr
     src.edgeList += e
     e
   }
-  def findState(stateName: String): Option[GeneralNode] = {
+  def findState(stateName: String): Option[GeneralState] = {
     val search = nodeList.filter(_.stateName == stateName)
     search.headOption
   }
-  def findOrInsert(stateName: String): GeneralNode = {
+  def findOrInsert(stateName: String): GeneralState = {
     findState(stateName) match {
       case Some(s) => s
       case None    =>
@@ -98,42 +102,4 @@ class FSMDescription[InputType <: Data, OutputType <: Data]() extends DirectedGr
         s
     }
   }
-  // for FSM construction
-  def state(stateName: String): StateContext = {
-    val state = findOrInsert(stateName)
-    new StateContext(state)
-  }
-  def entryState(stateName: String): StateContext = {
-    if (entryState.isEmpty) {
-      throw new MultipleEntryException
-    }
-    val state = findOrInsert(stateName)
-    entryState = Some(state)
-    new StateContext(state)
-  }
-
-  class StateContext(val node: GeneralNode) {
-    def transferTo(destName: String): TransferContext = {
-      new TransferContext(this, findOrInsert(destName))
-    }
-    def transferToEnd: TransferContext = {
-      new TransferContext(this, EndState)
-    }
-    def output(action: actionType): StateContext = {
-      node.actionList += action
-      this
-    }
-
-    class TransferContext(val parent: StateContext, val dest: BaseState) {
-      def inSituation(cond: condType): StateContext = {
-        conditionalTransferTo(node, dest, cond)
-        parent
-      }
-      def otherwise: StateContext = {
-        unconditionalTransferTo(node, dest)
-        parent
-      }
-    }
-  }
-  //
 }

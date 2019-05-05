@@ -66,20 +66,17 @@ class FSMExample extends Module {
   val fsm = new FSM {
     entryState("Idle") {
       io.output.z_o := false.B
-    }.transferTo("s0").inSituation(_.w_i === true.B)
+    } .when(io.input.w_i === true.B).transferTo("s0")
 
     state("s0") {
       io.output.z_o := false.B
-    }
-      .transferTo("Idle").inSituation(_.w_i === false.B)
-      .transferTo("s1").inSituation(_.w_i === true.B)
+    } .when(io.input.w_i === false.B).transferTo("Idle")
+      .when(io.input.w_i === true.B).transferTo("s1")
 
     state("s1") {
       out.z_o := true.B
-    }
-      .transferTo("Idle").inSituation(!_.w_i)
-      .transferTo("s1").otherwise
-
+    } .when(!io.input.w_i).transferTo("Idle")
+      .otherwise.transferTo("s1")
   }
 }
 
