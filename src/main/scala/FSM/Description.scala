@@ -4,28 +4,12 @@ import scala.collection.mutable
 import chisel3._
 
 
-abstract class BaseNode {
-  var edgeList: Seq[BaseEdge]
-}
-
-abstract class BaseEdge {
-  var source: BaseNode
-  var destination: BaseNode
-}
-
-abstract class DirectedGraph[KeyType] {
-  type NodeType <: BaseNode
-  type EdgeType <: BaseEdge
-  val nodeList: mutable.ArrayBuffer[NodeType]
-}
-
-
-abstract class BaseState() extends BaseNode {
-  override var edgeList = new mutable.ArrayBuffer[BaseTransfer]()
+abstract class BaseState {
+  var edgeList = new mutable.ArrayBuffer[BaseTransfer]()
   val stateName: String = ""
 }
 
-abstract class TikState() extends BaseState {
+abstract class TikState extends BaseState {
   type actionType = () => Unit
   val actionList = new mutable.ArrayBuffer[actionType]()
 }
@@ -37,20 +21,20 @@ case object EndState extends PseudoState {
   override val stateName = "_EndState"
 }
 
-abstract class BaseTransfer extends BaseEdge {
+abstract class BaseTransfer {
   def source: BaseState
   def destination: BaseState
 }
-case class ConditionalTransfer(source: BaseState, destination: BaseState, val cond: Bool) extends BaseTransfer {}
-case class UnconditionalTransfer(source: BaseState, destination: BaseState) extends BaseTransfer {}
+case class ConditionalTransfer(val source: BaseState, val destination: BaseState, val cond: Bool) extends BaseTransfer {}
+case class UnconditionalTransfer(val source: BaseState, val destination: BaseState) extends BaseTransfer {}
 
 trait Copy[A] {
   def copy: A
 }
 
-class FSMDescription() extends DirectedGraph with Cloneable {
-  override type NodeType = BaseState
-  override type EdgeType = BaseTransfer
+class FSMDescription() extends Cloneable {
+  type NodeType = BaseState
+  type EdgeType = BaseTransfer
   type actionType = () => Unit
   type condType = Bool
 
@@ -89,11 +73,11 @@ class FSMDescription() extends DirectedGraph with Cloneable {
     src.edgeList += e
     e
   }
-  def findState(stateName: String): Option[GeneralState] = {
+  def findState(stateName: String): Option[NodeType] = {
     val search = nodeList.filter(_.stateName == stateName)
     search.headOption
   }
-  def findOrInsert(stateName: String): GeneralState = {
+  def findOrInsert(stateName: String): NodeType = {
     findState(stateName) match {
       case Some(s) => s
       case None    =>

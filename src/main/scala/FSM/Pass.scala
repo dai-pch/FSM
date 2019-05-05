@@ -53,7 +53,7 @@ object IdlePass extends FSMPass with FSMSimplePass {
         case otherwise => otherwise
       })
     )
-    des.nodeList -= EndState()
+    des.nodeList -= EndState
     des
   }
 }
@@ -61,6 +61,7 @@ object IdlePass extends FSMPass with FSMSimplePass {
 object EncodePass extends FSMPass with FSMSimplePass {
   override protected def run(des: FSMDescription): FSMDescription = {
     des.encode ++= des.nodeList.zipWithIndex
+    print(des.encode, "\n")
     des.state_width = ceil(log(des.nodeList.size)).toInt
     des
   }
@@ -72,9 +73,9 @@ object CheckPass extends FSMPass with FSMSimplePass {
     assert(des.encode.size == des.nodeList.size, "FSM is not encoded correctly.")
     assert(des.state_width > 0)
     assert(des.entryState.nonEmpty, "Must indicate entry state.")
-    assert(!des.nodeList.exists(EndState()), "Unhandled EndState.")
+    assert(!des.nodeList.exists(_ == EndState), "Unhandled EndState.")
     des.nodeList.foreach(
-      n => assert(n.isInstanceOf[TikState](), "Unhandled PseudoState.")
+      n => assert(n.isInstanceOf[TikState], "Unhandled PseudoState.")
     )
     des
   }
