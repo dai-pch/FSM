@@ -64,24 +64,28 @@ class FSMExample extends Module {
   })
 
   val fsm = new FSM {
-    entryState("Idle") {
-      io.output.z_o := false.B
-    } .when(io.input.w_i === true.B).transferTo("s0")
+    entryState("Idle")
+      .act {
+        io.output.z_o := false.B
+      }
+      .when(io.input.w_i === true.B).transferTo("s0")
 
-    state("s0") {
-      io.output.z_o := false.B
-    } .when(io.input.w_i === false.B).transferTo("Idle")
+    state("s0")
+      .act {
+        io.output.z_o := false.B
+      }
+      .when(io.input.w_i === false.B).transferTo("Idle")
       .when(io.input.w_i === true.B).transferTo("s1")
 
-    state("s1") {
-      out.z_o := true.B
-    } .when(!io.input.w_i).transferTo("Idle")
+    state("s1")
+      .act {
+        io.output.z_o := true.B
+      }
+      .when(!io.input.w_i).transferTo("Idle")
       .otherwise.transferTo("s1")
   }
 }
 
 object FSMMain extends App {
-  iotesters.Driver.execute(args, () => new FSMExample) {
-    c => new GCDUnitTester(c)
-  }
+  chisel3.Driver.execute(args, () => new FSMExample) {}
 }
