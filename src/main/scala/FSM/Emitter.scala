@@ -12,19 +12,21 @@ object Emitter {
     current_state := next_state
 
     // next state logic
-    next_state := des.encode(des.entryState.get).U
+    next_state := current_state
     for (node <- des.nodeList) {
       when (current_state === des.encode(node).U) {
-        node.edgeList.reverse.foreach({
-          case ConditionalTransfer(src, dest, cond) =>
-            assert(src == node)
-            when (cond) {
+        for (e <- node.edgeList.reverse) {
+          e match {
+            case ConditionalTransfer(src, dest, cond) =>
+              assert(src == node)
+              when (cond) {
+                next_state := des.encode(dest).U
+              }
+            case UnconditionalTransfer(src, dest) =>
+              assert(src == node)
               next_state := des.encode(dest).U
-            }
-          case UnconditionalTransfer(src, dest) =>
-            assert(src == node)
-            next_state := des.encode(dest).U
-        })
+          }
+        }
       }
     }
 
@@ -45,5 +47,9 @@ object Emitter {
     // some signal
     fsm.currentState := current_state
     fsm.nextState := next_state
+
+    //debug
+//    printf(p"current state $current_state \n")
+//    printf(p"next state $next_state \n")
   }
 }

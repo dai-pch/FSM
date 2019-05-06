@@ -22,7 +22,7 @@ class Seq10010 extends Module {
       .when(io.input === true.B).transferTo("A")
 
     state("A")
-      .when(io.input === true.B).transferTo("B")
+      .when(io.input === false.B).transferTo("B")
 
     state("B")
       .when(io.input === false.B).transferTo("C")
@@ -48,18 +48,17 @@ class Seq10010 extends Module {
 }
 
 class FSMUnitTest_Seq10010(c: Seq10010) extends PeekPokeTester(c) {
-  private val N = 50
+  private val N = 50000
   private val seq = c
   private val send_v: Seq[Boolean] = (1 to N).map(x => (new scala.util.Random).nextBoolean())
 
-//  println(send_v.toString())
-  println(s"Start from state: " + peek(seq.io.state).toString())
+//  println(s"Start from state: " + peek(seq.io.state).toString())
   for ((d, id) <- send_v.zipWithIndex)
   {
     poke(seq.io.input, d)
-    println("Send " + d.toString())
+//    println("Send " + d.toString())
     step(1)
-    println(s"Cycle ${id+1}, state: " + peek(seq.io.state).toString() + ". output: " + peek(seq.io.output).toString())
+//    println(s"Cycle ${id+1}, state: " + peek(seq.io.state).toString() + ". output: " + peek(seq.io.output).toString())
     if (id >= 4 && send_v.slice(id-4, id+1) == Seq(true, false, false, true, false))
       expect(seq.io.output, true)
     else

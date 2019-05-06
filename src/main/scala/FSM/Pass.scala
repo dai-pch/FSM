@@ -1,5 +1,6 @@
 package libpc.FSM
 
+import chisel3.util.log2Ceil
 import math._
 
 abstract class FSMPass {
@@ -61,8 +62,9 @@ object IdlePass extends FSMPass with FSMSimplePass {
 object EncodePass extends FSMPass with FSMSimplePass {
   override protected def run(des: FSMDescription): FSMDescription = {
     des.encode ++= des.nodeList.zipWithIndex
-    print(des.encode, "\n")
-    des.state_width = ceil(log(des.nodeList.size)).toInt
+    println(des.encode)
+    val state_w = log2Ceil(des.nodeList.size)
+    des.state_width = state_w
     des
   }
 }
