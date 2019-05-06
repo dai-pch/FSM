@@ -1,20 +1,21 @@
 package libpc.FSM
 
+import chisel3._
 import chisel3.util.log2Ceil
-import math._
+import scala.collection.mutable
 
 abstract class FSMPass {
   protected def run(des: FSMDescription): FSMDescription
   def runInternal(des: FSMDescription): FSMDescription
 }
 
-trait FSMSimplePass extends FSMPass {
+abstract class FSMSimplePass extends FSMPass {
   final override def runInternal(des: FSMDescription): FSMDescription = {
     run(des)
   }
 }
 
-trait FSMIteratePass extends FSMPass {
+abstract class FSMIteratePass extends FSMPass {
   val maxRun = 5000
   final override def runInternal(des: FSMDescription): FSMDescription = {
     var count = 0
@@ -45,7 +46,58 @@ object FSMPassCompose {
   def apply(passes: FSMPass*): FSMComposePass = new FSMComposePass(passes)
 }
 
-object IdlePass extends FSMPass with FSMSimplePass {
+object MergeSkipPass extends FSMSimplePass {
+  override protected def run(des: FSMDescription): FSMDescription = {
+    val skipStates = des.nodeList.filter(_.isInstanceOf[SkipState])
+    for (skipState <- skipStates) {
+      val inEdges = des.findInputEdges(skipState)
+      for (e <- inEdges) {
+        val source = e.source
+        val e_cond = if (e.isInstanceOf[ConditionalTransfer]) Some(e.asInstanceOf[ConditionalTransfer].cond) else None
+        val e_id = source.edgeList.indexOf(e)
+        if (e_id == -1) throw new FSMCompileEdgeNotFound
+        source.edgeList.insertAll(e_id, skipState.edgeList.map(
+            se => {(se, e_cond) match {
+              case (ConditionalTransfer(s, dest, cond), Some(e_c)) =>
+                assert(s == skipState)
+                ConditionalTransfer(source, dest, cond && e_c)
+              case (UnconditionalTransfer(s, dest), Some(e_c)) =>
+                assert(s == skipState)
+                ConditionalTransfer(source, dest, e_c)
+              case (ConditionalTransfer(s, dest, cond), None) =>
+                assert(s == skipState)
+                ConditionalTransfer(source, dest, cond)
+              case (UnconditionalTransfer(s, dest), None) =>
+                assert(s == skipState)
+                UnconditionalTransfer(source, dest)
+            }}
+        ))
+        source.edgeList -= e
+      }
+    }
+    des
+  }
+}
+
+object DeleteUnreachableStatePass extends FSMSimplePass {
+  override protected def run(des: FSMDescription): FSMDescription = {
+    val reachable = mutable.HashSet[BaseState](des.entryState)
+    val queue = mutable.Queue[BaseState](des.entryState)
+    while (queue.nonEmpty) {
+      val cur = queue.dequeue()
+      cur.edgeList.map(_.destination).foreach(
+        n => if (!reachable.exists(_ == n)) {
+          reachable += n
+          queue.enqueue(n)
+        }
+      )
+    }
+    des.nodeList = reachable
+    des
+  }
+}
+
+object IdlePass extends FSMSimplePass {
   override protected def run(des: FSMDescription): FSMDescription = {
     des.traverseNode(n =>
       n.edgeList = n.edgeList.map({
@@ -59,7 +111,7 @@ object IdlePass extends FSMPass with FSMSimplePass {
   }
 }
 
-object EncodePass extends FSMPass with FSMSimplePass {
+object EncodePass extends FSMSimplePass {
   override protected def run(des: FSMDescription): FSMDescription = {
     des.encode ++= des.nodeList.zipWithIndex
     println(des.encode)
@@ -69,7 +121,7 @@ object EncodePass extends FSMPass with FSMSimplePass {
   }
 }
 
-object CheckPass extends FSMPass with FSMSimplePass {
+object CheckPass extends FSMSimplePass {
   override def run(des: FSMDescription): FSMDescription = {
     assert(des.nodeList.nonEmpty, "FSM is empty.")
     assert(des.encode.size == des.nodeList.size, "FSM is not encoded correctly.")
@@ -83,6 +135,14 @@ object CheckPass extends FSMPass with FSMSimplePass {
   }
 }
 
+object PreprocessPass extends FSMComposePass(Seq(
+  MergeSkipPass
+))
+
+object OptimizePass extends FSMComposePass(Seq(
+  DeleteUnreachableStatePass
+))
+
 abstract class FSMCompiler {
   val pass: FSMPass
   def compile(des: FSMDescription): FSMDescription = {
@@ -92,6 +152,8 @@ abstract class FSMCompiler {
 
 object IdleFSMCompiler extends FSMCompiler {
   override val pass = FSMPassCompose(
+    PreprocessPass,
+    OptimizePass,
     IdlePass,
     EncodePass,
     CheckPass

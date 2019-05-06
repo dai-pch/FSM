@@ -12,6 +12,11 @@ class FSM extends FSMBase {
     val state = desc.findOrInsert(stateName)
     new StateContext(state)
   }
+  def pseudoState(stateName: String): StateContext = {
+    val state = desc.findOrInsertG(stateName, new SkipState(stateName))
+    println(state)
+    new StateContext(state)
+  }
   def entryState(stateName: String): StateContext = {
     if (desc.entryState != EndState) {
       throw new MultipleEntryException
@@ -48,8 +53,8 @@ class FSM extends FSMBase {
     class TransferContext(val parent: StateContext, val cond: Option[condType]) {
       def transferTo(destName: String): StateContext = {
         cond match {
-          case Some(c) => desc.conditionalTransferTo(node, desc.findOrInsert(destName), c)
-          case None =>    desc.unconditionalTransferTo(node, desc.findOrInsert(destName))
+          case Some(c) => desc.conditionalTransferTo(node, desc.findOrHold(destName), c)
+          case None =>    desc.unconditionalTransferTo(node, desc.findOrHold(destName))
         }
         parent
       }

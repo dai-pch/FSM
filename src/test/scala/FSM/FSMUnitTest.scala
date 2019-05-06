@@ -26,9 +26,15 @@ class Seq10010 extends Module {
 
     state("B")
       .when(io.input === false.B).transferTo("C")
+      .otherwise.transferTo("pseB")
+
+    pseudoState("pseB")
       .otherwise.transferTo("A")
 
     state("C")
+      .otherwise.transferTo("pseC")
+
+    pseudoState("pseC")
       .when(io.input === true.B).transferTo("D")
       .otherwise.transferTo("Idle")
 

@@ -7,3 +7,6 @@ class MultipleEntryException extends FSMException {}
 abstract class FSMCompileException extends FSMException {}
 
 class FSMCompileNoStopping extends FSMCompileException {}
+
+class FSMCompileEdgeNotFound extends FSMCompileException {}
+class FSMCompileStateNotFound extends FSMCompileException {}
