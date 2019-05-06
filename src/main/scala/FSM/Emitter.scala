@@ -3,7 +3,7 @@ package libpc.FSM
 import chisel3._
 
 object Emitter {
-  def apply(des: FSMDescription): Unit = {
+  def apply(des: FSMDescription, fsm: FSMBase): Unit = {
     // state register
     val current_state = RegInit(des.encode(des.entryState.get).U(des.state_width.W))
     val next_state = Wire(UInt(des.state_width.W))
@@ -42,5 +42,8 @@ object Emitter {
       }
     }
 
+    // some signal
+    fsm.currentState := current_state
+    fsm.nextState := next_state
   }
 }

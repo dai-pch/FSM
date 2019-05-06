@@ -5,14 +5,16 @@ import chisel3._
 
 class FSMBase {
   val desc = new FSMDescription()
+  val currentState = Wire(UInt())
+  val nextState = Wire(UInt())
 }
 
-object FSM {
+object InstanciateFSM {
   def apply(fsm: FSMBase): FSMBase = {
     val desc = fsm.desc
     val compiler = IdleFSMCompiler
     val compiled = compiler.compile(desc)
-    Emitter(compiled)
+    Emitter(compiled, fsm)
     fsm
   }
 }

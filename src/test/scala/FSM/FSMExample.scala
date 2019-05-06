@@ -18,7 +18,7 @@ class FSMExample extends Module {
 
   io.output.z_o := false.B
 
-  val fsm = FSM(new FSM {
+  val fsm = InstanciateFSM(new FSM {
     entryState("Idle")
       .act {
         io.output.z_o := false.B

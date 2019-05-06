@@ -25,7 +25,7 @@ class ControlFlow extends FSMBase {
 
   // help function
   private def gen_name(): String = {
-
+    ""
   }
 
   class StateContext(val node: BaseState) {
