@@ -5,7 +5,7 @@ import chisel3._
 object Emitter {
   def apply(des: FSMDescription, fsm: FSMBase): Unit = {
     // state register
-    val current_state = RegInit(des.encode(des.entryState.get).U(des.state_width.W))
+    val current_state = RegInit(des.encode(des.entryState).U(des.state_width.W))
     val next_state = Wire(UInt(des.state_width.W))
 
     // state transfer

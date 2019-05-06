@@ -13,11 +13,11 @@ class FSM extends FSMBase {
     new StateContext(state)
   }
   def entryState(stateName: String): StateContext = {
-    if (desc.entryState.nonEmpty) {
+    if (desc.entryState != EndState) {
       throw new MultipleEntryException
     }
     val state = desc.findOrInsert(stateName)
-    desc.entryState = Some(state)
+    desc.entryState = state
     new StateContext(state)
   }
 

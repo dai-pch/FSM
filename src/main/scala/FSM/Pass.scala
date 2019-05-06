@@ -49,8 +49,8 @@ object IdlePass extends FSMPass with FSMSimplePass {
   override protected def run(des: FSMDescription): FSMDescription = {
     des.traverseNode(n =>
       n.edgeList = n.edgeList.map({
-        case e@ConditionalTransfer(_, EndState, _) => e.copy(destination = des.entryState.get)
-        case e@UnconditionalTransfer(_, EndState) => e.copy(destination = des.entryState.get)
+        case e@ConditionalTransfer(_, EndState, _) => e.copy(destination = des.entryState)
+        case e@UnconditionalTransfer(_, EndState) => e.copy(destination = des.entryState)
         case otherwise => otherwise
       })
     )
@@ -74,7 +74,7 @@ object CheckPass extends FSMPass with FSMSimplePass {
     assert(des.nodeList.nonEmpty, "FSM is empty.")
     assert(des.encode.size == des.nodeList.size, "FSM is not encoded correctly.")
     assert(des.state_width > 0)
-    assert(des.entryState.nonEmpty, "Must indicate entry state.")
+    assert(des.entryState != EndState, "Must indicate entry state.")
     assert(!des.nodeList.exists(_ == EndState), "Unhandled EndState.")
     des.nodeList.foreach(
       n => assert(n.isInstanceOf[TikState], "Unhandled PseudoState.")

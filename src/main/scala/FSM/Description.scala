@@ -40,7 +40,7 @@ class FSMDescription() extends Cloneable {
 
   // Graph properties
   val nodeList = new mutable.HashSet[NodeType]()
-  var entryState: Option[NodeType] = None
+  var entryState: NodeType = EndState
 //  val defaultAction = new mutable.ArrayBuffer[actionType]()
   // compile info
   var encode: Map[NodeType, Int] = Map()
