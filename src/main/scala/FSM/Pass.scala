@@ -54,7 +54,7 @@ object FSMPassCompose {
 object MergeSubFSMPass extends FSMSimplePass {
   override protected def run(description_ : FSMDescription): FSMDescription = {
     var desc = description_
-    val subs = desc.nodes.filter(_._2.isInstanceOf[SubFSMState]).map(x => (x._1, x._2.asInstanceOf[SubFSMState]))
+    val subs = desc.statesOfType(SubFSMState(null))
     for ((name, sub_state) <- subs) {
       var sub_desc = sub_state.fsm.desc
       val addPrefix = name + _
@@ -159,7 +159,6 @@ object CheckPass extends FSMSimplePass {
     des.nodes.foreach({
       case (n, s) => assert(s.isInstanceOf[TikState], s"Unhandled PseudoState $s: $n.")
     })
-    println(des.edges
     des
   }
 }

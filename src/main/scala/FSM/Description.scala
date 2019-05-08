@@ -138,7 +138,7 @@ case class FSMDescription(// Graph properties
       None
   }
   def statesOfType[T <: NodeType](dummy: T):Array[(String, T)] = {
-    nodes.filter(_._2.isInstanceOf[T])
+    nodes.filter(_._2.getClass() == dummy.getClass() )
       .map(x => (x._1, x._2.asInstanceOf[T]))
   }
   def nodes: Array[NodeMap] = {
