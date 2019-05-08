@@ -1,111 +1,165 @@
 package libpc.FSM
 
-import scala.collection.mutable
 import chisel3._
 
 
-sealed abstract class BaseState {
-  var edgeList = new mutable.ArrayBuffer[BaseTransfer]()
-  val stateName: String
-}
-
-sealed abstract class TikState extends BaseState {
-  type actionType = () => Unit
-  val actionList = new mutable.ArrayBuffer[actionType]()
-}
-sealed abstract class PseudoState() extends BaseState {}
-
-sealed case class GeneralState(override val stateName: String) extends TikState {}
-//  class StartState() extends BaseState {}
-case object EndState extends PseudoState {
-  override val stateName = "_EndState"
-}
-sealed case class SkipState(override val stateName: String) extends PseudoState {}
-sealed case class PlaceHolderState(override val stateName: String) extends PseudoState {}
-
-sealed abstract class BaseTransfer {
-  def source: BaseState
-  def destination: BaseState
-}
-sealed case class ConditionalTransfer(val source: BaseState, val destination: BaseState, val cond: Bool) extends BaseTransfer {}
-sealed case class UnconditionalTransfer(val source: BaseState, val destination: BaseState) extends BaseTransfer {}
-
-trait Copy[A] {
-  def copy: A
-}
-
-class FSMDescription() extends Cloneable {
+object FSMDescriptionConfig {
   type NodeType = BaseState
   type EdgeType = BaseTransfer
-  type actionType = () => Unit
-  type condType = Bool
+  type ActionType = () => Unit
+  type ConditionType = Bool
+  // configs
+  val _endStateName = "_EndState"
+}
 
-  // Graph properties
-  var nodeList = new mutable.HashSet[NodeType]()
-  var entryState: NodeType = EndState
-//  val defaultAction = new mutable.ArrayBuffer[actionType]()
-  // compile info
-  var encode: Map[NodeType, Int] = Map()
-  var state_width: Int = 0
+sealed abstract class BaseState {}
+
+sealed abstract class TikState extends BaseState {}
+sealed abstract class PseudoState extends BaseState {}
+
+sealed case class GeneralState(actionList: Array[FSMDescriptionConfig.ActionType] = Array()) extends TikState {
+  def addAct(act: FSMDescriptionConfig.ActionType) = {
+    copy(actionList = actionList :+ act)
+  }
+}
+//  class StartState() extends BaseState {}
+case object EndState extends PseudoState {}
+sealed case class SkipState() extends PseudoState {}
+sealed case class PlaceHolderState() extends PseudoState {}
+
+sealed abstract class BaseTransfer(val source: String, val destination: String) {
+  def unapply(arg: BaseTransfer): Option[(String, String)] = Some(arg.source, arg.destination)
+}
+sealed case class ConditionalTransfer(override val source: String,
+                                      override val destination: String,
+                                      cond: FSMDescriptionConfig.ConditionType
+                                     ) extends BaseTransfer(source, destination) {}
+sealed case class UnconditionalTransfer(override val source: String,
+                                        override val destination: String
+                                       ) extends BaseTransfer(source, destination) {}
+
+
+object FSMDescription {
+  def apply(): FSMDescription = {
+    new FSMDescription(
+      Map(FSMDescriptionConfig._endStateName -> EndState),
+      Array(),
+      FSMDescriptionConfig._endStateName,
+      Map(),
+      0
+    )
+  }
+}
+
+case class FSMDescription(// Graph properties
+                          private val nodeMap: Map[String, FSMDescriptionConfig.NodeType],
+                          private val edgeArray: Array[FSMDescriptionConfig.EdgeType],
+                          entryState: String,
+                          // compile info
+                          encode: Map[String, Int],
+                          state_width: Int
+                         ) {
+  //type info
+  type NodeType = FSMDescriptionConfig.NodeType
+  type EdgeType = FSMDescriptionConfig.EdgeType
+  type ActionType = FSMDescriptionConfig.ActionType
+  type ConditionType = FSMDescriptionConfig.ConditionType
   // class methods
-  def traverseNode(func: (NodeType => Unit)): Unit = {
-    for (node <- nodeList) {
-      func(node)
+  def conditionalTransferTo(src: String, dest: String, cond: ConditionType): FSMDescription = {
+    copy(edgeArray = edgeArray :+ ConditionalTransfer(src, dest, cond))
+  }
+  def unconditionalTransferTo(src: String, dest: String): FSMDescription = {
+    copy(edgeArray = edgeArray :+ UnconditionalTransfer(src, dest))
+  }
+  def replaceState(ori: String, state: BaseState): FSMDescription = {
+    assert(nodeMap contains ori)
+    copy(nodeMap = nodeMap + (ori -> state))
+  }
+  def setEntry(entryStateName: String): FSMDescription = {
+    copy(entryState = entryStateName)
+  }
+  // node
+  def addAct(name: String, act: ActionType): FSMDescription = {
+    assert((nodeMap contains name) && nodeMap(name).isInstanceOf[GeneralState], "Can not add actions into pseudo state.")
+    val node = nodeMap(name).asInstanceOf[GeneralState]
+    replaceState(name, node.addAct(act))
+  }
+  def insertIfNotFound(name: String): FSMDescription = insertIfNotFoundG(name, GeneralState())
+  def holdIfNotFound(name: String): FSMDescription = insertIfNotFoundG(name, PlaceHolderState())
+  def insertIfNotFoundG[T <: BaseState](stateName: String, state: T): FSMDescription = {
+    nodeMap.get(stateName) match {
+      case Some(PlaceHolderState()) => replaceState(stateName, state)
+      case Some(s) => this
+      case None    => this.copy(nodeMap = nodeMap + (stateName -> state))
     }
   }
-  def traverseEdge(func: (EdgeType => Unit)): Unit = {
-    traverseNode((node: NodeType) => node.edgeList.map(func(_)))
+  def filterNodes(cond: (String, NodeType) => Boolean): FSMDescription = {
+    this.copy(nodeMap = nodeMap.toArray.filter(cond.tupled).toMap)
   }
-  def copy() = {
-    val cp = new FSMDescription()
-    cp.nodeList ++= nodeList
-    cp.entryState = entryState
-//    cp.defaultAction ++= defaultAction
-    cp.encode = encode
-    cp.state_width = state_width
-    cp
+//  def traverseNode(func: (String, NodeType) => NodeType): FSMDescription = {
+//    this.copy(nodeMap = nodeMap.toArray.map({case (k, v) => (k, func(k, v))}).toMap)
+//  }
+//  def procNode(state: String, func: NodeType => NodeType): FSMDescription = {
+//    this.copy(nodeMap = nodeMap + (state -> func(nodeMap(state))))
+//  }
+  def +(stateName: String, state: NodeType): FSMDescription = {
+    assert(!nodeMap.contains(stateName))
+    this.copy(nodeMap = nodeMap + (stateName -> state))
   }
-  def conditionalTransferTo(src: BaseState, dest: BaseState, cond: condType): ConditionalTransfer = {
-    val e = ConditionalTransfer(src, dest, cond)
-    src.edgeList += e
-    e
+  def -(stateName: String): FSMDescription = {
+    this.copy(nodeMap = nodeMap - stateName)
   }
-  def unconditionalTransferTo(src: BaseState, dest: BaseState): UnconditionalTransfer = {
-    val e = UnconditionalTransfer(src, dest)
-    src.edgeList += e
-    e
+  def --(stateNames: Seq[String]): FSMDescription = {
+    this.copy(nodeMap = nodeMap -- stateNames)
   }
-  def replaceState(ori: BaseState, state: BaseState) = {
-    if (nodeList.exists(_ == ori)) {
-      traverseNode(n => n.edgeList = n.edgeList.map({
-        case e@ConditionalTransfer(_, des, _) if (des == ori) => e.copy(destination = state)
-        case e@UnconditionalTransfer(_, des) if (des == ori) => e.copy(destination = state)
-        case otherwise => otherwise
-      }))
-      nodeList -= ori
-      nodeList += state
-    }
-    state
+  def containsState(stateName: String): Boolean = {
+    nodeMap contains stateName
   }
   def findState(stateName: String): Option[NodeType] = {
-    val search = nodeList.filter(_.stateName == stateName)
-    search.headOption
+    if (containsState(stateName))
+      Some(nodeMap(stateName))
+    else
+      None
   }
-  def findOrInsert(name: String) = findOrInsertG(name, new GeneralState(name))
-  def findOrHold(name: String) = findOrInsertG(name, new PlaceHolderState(name))
-  def findOrInsertG[T <: BaseState](stateName: String, state: T): NodeType = {
-    findState(stateName) match {
-      case Some(s@PlaceHolderState(name)) => replaceState(s, state)
-      case Some(s) => s
-      case None    =>
-        val s = state
-        nodeList += s
-        s
-    }
+  def nodes: Array[(String, NodeType)] = {
+    nodeMap.toArray
   }
-  def findInputEdges(s: NodeType): Seq[EdgeType] = {
-    val in_e = mutable.ArrayBuffer[EdgeType]()
-    traverseEdge(e => if (e.destination == s) {in_e += e})
-    in_e
+  def nodeNames: Array[String] = {
+    nodes.map(_._1)
+  }
+  // edge
+  def traverseEdge(func: EdgeType => EdgeType): FSMDescription = {
+    this.copy(edgeArray = edgeArray.map(func))
+  }
+  def mapEdge(cond: EdgeType => Boolean, func: EdgeType => EdgeType): FSMDescription = {
+    val _f: EdgeType => Seq[EdgeType] = Array apply func(_)
+    mapEdgeSeq(cond, _f)
+  }
+  def mapEdgeSeq(cond: EdgeType => Boolean, func: EdgeType => Seq[EdgeType]): FSMDescription = {
+    copy(edgeArray = edgeArray.foldLeft(Array[EdgeType]())({
+      case (res, e) if cond(e) => res ++ func(e)
+      case (res, e) => res :+ e
+    }))
+  }
+  def +~(edge: EdgeType): FSMDescription = {
+    copy(edgeArray = edgeArray :+ edge)
+  }
+  def ++~(edges: Seq[EdgeType]): FSMDescription = {
+    copy(edgeArray = edgeArray ++ edges)
+  }
+  def -~(edge: EdgeType): FSMDescription = {
+    this.copy(edgeArray = edgeArray.filterNot(_ == edge))
+  }
+  def --~(edges: Seq[EdgeType]): FSMDescription = {
+    this.copy(edgeArray = edgeArray.filterNot(edges.contains(_)))
+  }
+  def edgesFrom(name: String): Array[EdgeType] = {
+    edgeArray.filter(_.source == name)
+  }
+  def edgesTo(name: String): Array[EdgeType] = {
+    edgeArray.filter(_.destination == name)
+  }
+  def edges: Array[EdgeType] = {
+    edgeArray
   }
 }

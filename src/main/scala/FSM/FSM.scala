@@ -4,64 +4,52 @@ import chisel3._
 //import scala.collection.mutable.Stack
 
 class FSM extends FSMBase {
-  type actionType = () => Unit
-  type condType = desc.condType
-
   // for FSM construction
   def state(stateName: String): StateContext = {
-    val state = desc.findOrInsert(stateName)
-    new StateContext(state)
+    desc = desc.insertIfNotFound(stateName)
+    new StateContext(stateName)
   }
   def pseudoState(stateName: String): StateContext = {
-    val state = desc.findOrInsertG(stateName, new SkipState(stateName))
-    println(state)
-    new StateContext(state)
+    desc = desc.insertIfNotFoundG(stateName, SkipState())
+    new StateContext(stateName)
   }
   def entryState(stateName: String): StateContext = {
-    if (desc.entryState != EndState) {
+    if (desc.entryState != FSMDescriptionConfig._endStateName) {
       throw new MultipleEntryException
     }
-    val state = desc.findOrInsert(stateName)
-    desc.entryState = state
-    new StateContext(state)
+    desc = desc.insertIfNotFound(stateName)
+    desc = desc.setEntry(stateName)
+    new StateContext(stateName)
   }
 
-  class StateContext(val node: BaseState) {
-    private def toTikState(): Option[TikState] = {
-      if (!node.isInstanceOf[TikState])
-        None
-      else
-        Some(node.asInstanceOf[TikState])
-    }
-    private def addAct(action: desc.actionType): Unit = {
-      val state = toTikState() match {
-        case None => assert(false, "Can not add actions into pseudo state.")
-        case Some(s) => s.actionList += action
-      }
+  class StateContext(val stateName: String) {
+    private def addAct(action: ActionType): Unit = {
+      desc = desc.addAct(stateName, action)
     }
     def act(c: => Unit): StateContext = {
       addAct(() => c)
       this
     }
-    def when(cond: condType): TransferContext = {
+    def when(cond: ConditionType): TransferContext = {
       new TransferContext(this, Some(cond))
     }
     def otherwise: TransferContext = {
       new TransferContext(this, None)
     }
 
-    class TransferContext(val parent: StateContext, val cond: Option[condType]) {
+    class TransferContext(val parent: StateContext, val cond: Option[ConditionType]) {
+      val stateName = parent.stateName
       def transferTo(destName: String): StateContext = {
         cond match {
-          case Some(c) => desc.conditionalTransferTo(node, desc.findOrHold(destName), c)
-          case None =>    desc.unconditionalTransferTo(node, desc.findOrHold(destName))
+          case Some(c) => desc = desc +~ ConditionalTransfer(stateName, destName, c)
+          case None    => desc = desc +~ UnconditionalTransfer(stateName, destName)
         }
         parent
       }
       def transferToEnd: StateContext = {
         cond match {
-          case Some(c) => desc.conditionalTransferTo(node, EndState, c)
-          case None =>    desc.unconditionalTransferTo(node, EndState)
+          case Some(c) => desc = desc +~ ConditionalTransfer(stateName, FSMDescriptionConfig._endStateName, c)
+          case None    => desc = desc +~ UnconditionalTransfer(stateName, FSMDescriptionConfig._endStateName)
         }
         parent
       }

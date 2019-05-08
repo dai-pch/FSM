@@ -5,6 +5,12 @@ import chisel3.util.log2Ceil
 import scala.collection.mutable
 
 abstract class FSMPass {
+  //type info
+  type NodeType = FSMDescriptionConfig.NodeType
+  type EdgeType = FSMDescriptionConfig.EdgeType
+  type ActionType = FSMDescriptionConfig.ActionType
+  type ConditionType = FSMDescriptionConfig.ConditionType
+  //
   protected def run(des: FSMDescription): FSMDescription
   def runInternal(des: FSMDescription): FSMDescription
 }
@@ -19,17 +25,16 @@ abstract class FSMIteratePass extends FSMPass {
   val maxRun = 5000
   final override def runInternal(des: FSMDescription): FSMDescription = {
     var count = 0
-    var old = des
-    var n: FSMDescription = old.copy()
+    var old_des: FSMDescription = null
+    var new_des = des
     do {
-      run(n)
+      old_des = new_des
+      new_des = run(old_des)
       count += 1
       if (count > maxRun)
         throw new FSMCompileNoStopping
-      old = n
-      n = old.copy()
-    } while (n != old)
-    n
+    } while (old_des != new_des)
+    new_des
   }
 }
 
@@ -47,90 +52,88 @@ object FSMPassCompose {
 }
 
 object MergeSkipPass extends FSMSimplePass {
-  override protected def run(des: FSMDescription): FSMDescription = {
-    val skipStates = des.nodeList.filter(_.isInstanceOf[SkipState])
-    for (skipState <- skipStates) {
-      val inEdges = des.findInputEdges(skipState)
-      for (e <- inEdges) {
-        val source = e.source
-        val e_cond = if (e.isInstanceOf[ConditionalTransfer]) Some(e.asInstanceOf[ConditionalTransfer].cond) else None
-        val e_id = source.edgeList.indexOf(e)
-        if (e_id == -1) throw new FSMCompileEdgeNotFound
-        source.edgeList.insertAll(e_id, skipState.edgeList.map(
-            se => {(se, e_cond) match {
-              case (ConditionalTransfer(s, dest, cond), Some(e_c)) =>
-                assert(s == skipState)
-                ConditionalTransfer(source, dest, cond && e_c)
-              case (UnconditionalTransfer(s, dest), Some(e_c)) =>
-                assert(s == skipState)
-                ConditionalTransfer(source, dest, e_c)
-              case (ConditionalTransfer(s, dest, cond), None) =>
-                assert(s == skipState)
-                ConditionalTransfer(source, dest, cond)
-              case (UnconditionalTransfer(s, dest), None) =>
-                assert(s == skipState)
-                UnconditionalTransfer(source, dest)
-            }}
-        ))
-        source.edgeList -= e
-      }
+  override protected def run(desc: FSMDescription): FSMDescription = {
+    var new_desc = desc
+    val skipStates = new_desc.nodes.filter(_._2.isInstanceOf[SkipState]).map(_._1)
+    for (name <- skipStates) {
+      val out_edges = new_desc.edgesFrom(name)
+      new_desc = new_desc.mapEdgeSeq(name == _.destination, {
+        case ConditionalTransfer(src, _, cond) => out_edges.map({
+          case ConditionalTransfer(_, dest, cond2) => ConditionalTransfer(src, dest, cond && cond2)
+          case UnconditionalTransfer(_, dest) => ConditionalTransfer(src, dest, cond)
+        })
+        case UnconditionalTransfer(src, _) => out_edges.map({
+          case ConditionalTransfer(_, dest, cond2) => ConditionalTransfer(src, dest, cond2)
+          case UnconditionalTransfer(_, dest) => UnconditionalTransfer(src, dest)
+        })
+      })
+      new_desc = new_desc --~ out_edges
     }
-    des
+    new_desc
+  }
+}
+
+object DeleteUnreachableEdgePass extends FSMSimplePass {
+  override protected def run(des: FSMDescription): FSMDescription = {
+    val unreachable_edges = mutable.ArrayBuffer[EdgeType]()
+    for ((name, s) <- des.nodes) {
+      val edges = des.edgesFrom(name)
+      val (should_drop, _) = edges.foldLeft((Array[EdgeType](), false))({
+        case ((array, true), e) => (array :+ e, true)
+        case ((array, _), e@UnconditionalTransfer(_, _)) => (array, true)
+        case ((array, _), e) => (array, false)
+      })
+      unreachable_edges ++= should_drop
+    }
+    des --~ unreachable_edges
   }
 }
 
 object DeleteUnreachableStatePass extends FSMSimplePass {
   override protected def run(des: FSMDescription): FSMDescription = {
-    val reachable = mutable.HashSet[BaseState](des.entryState)
-    val queue = mutable.Queue[BaseState](des.entryState)
+    val reachable = mutable.Set[String](des.entryState)
+    val queue = mutable.Queue[String](des.entryState)
     while (queue.nonEmpty) {
       val cur = queue.dequeue()
-      cur.edgeList.map(_.destination).foreach(
-        n => if (!reachable.exists(_ == n)) {
-          reachable += n
-          queue.enqueue(n)
+      for (name <- des.edgesFrom(cur).map(_.destination)) {
+        if (!reachable.contains(name)) {
+          reachable += name
+          queue.enqueue(name)
         }
-      )
+      }
     }
-    des.nodeList = reachable
-    des
+    des.filterNodes((n, s) => reachable.contains(n))
   }
 }
 
 object IdlePass extends FSMSimplePass {
   override protected def run(des: FSMDescription): FSMDescription = {
-    des.traverseNode(n =>
-      n.edgeList = n.edgeList.map({
-        case e@ConditionalTransfer(_, EndState, _) => e.copy(destination = des.entryState)
-        case e@UnconditionalTransfer(_, EndState) => e.copy(destination = des.entryState)
-        case otherwise => otherwise
-      })
-    )
-    des.nodeList -= EndState
-    des
+    var new_desc = des
+    new_desc = new_desc.replaceState(FSMDescriptionConfig._endStateName, SkipState())
+    new_desc = new_desc +~ UnconditionalTransfer(FSMDescriptionConfig._endStateName, des.entryState)
+    new_desc
   }
 }
 
 object EncodePass extends FSMSimplePass {
   override protected def run(des: FSMDescription): FSMDescription = {
-    des.encode ++= des.nodeList.zipWithIndex
-    println(des.encode)
-    val state_w = log2Ceil(des.nodeList.size)
-    des.state_width = state_w
-    des
+    val enc = des.nodes.map(_._1).zipWithIndex
+    var new_desc = des.copy(encode = enc.toMap)
+    val state_w = log2Ceil(enc.length)
+    new_desc.copy(state_width = state_w)
   }
 }
 
 object CheckPass extends FSMSimplePass {
   override def run(des: FSMDescription): FSMDescription = {
-    assert(des.nodeList.nonEmpty, "FSM is empty.")
-    assert(des.encode.size == des.nodeList.size, "FSM is not encoded correctly.")
+    assert(des.nodes.nonEmpty, "FSM is empty.")
+    assert(des.encode.size == des.nodes.length, "FSM is not encoded correctly.")
     assert(des.state_width > 0)
-    assert(des.entryState != EndState, "Must indicate entry state.")
-    assert(!des.nodeList.exists(_ == EndState), "Unhandled EndState.")
-    des.nodeList.foreach(
-      n => assert(n.isInstanceOf[TikState], "Unhandled PseudoState.")
-    )
+    assert(des.entryState != FSMDescriptionConfig._endStateName, "Must indicate entry state.")
+    assert(!des.nodes.map(_._1).contains(FSMDescriptionConfig._endStateName), "Unhandled EndState.")
+    des.nodes.foreach({
+      case (n, s) => assert(s.isInstanceOf[TikState], s"Unhandled PseudoState $s: $n.")
+    })
     des
   }
 }
@@ -140,6 +143,7 @@ object PreprocessPass extends FSMComposePass(Seq(
 ))
 
 object OptimizePass extends FSMComposePass(Seq(
+  DeleteUnreachableEdgePass,
   DeleteUnreachableStatePass
 ))
 
@@ -152,9 +156,9 @@ abstract class FSMCompiler {
 
 object IdleFSMCompiler extends FSMCompiler {
   override val pass = FSMPassCompose(
+    IdlePass,
     PreprocessPass,
     OptimizePass,
-    IdlePass,
     EncodePass,
     CheckPass
   )

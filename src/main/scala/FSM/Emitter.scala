@@ -13,9 +13,9 @@ object Emitter {
 
     // next state logic
     next_state := current_state
-    for (node <- des.nodeList) {
+    for ((node, _) <- des.nodes) {
       when (current_state === des.encode(node).U) {
-        for (e <- node.edgeList.reverse) {
+        for (e <- des.edgesFrom(node).reverse) {
           e match {
             case ConditionalTransfer(src, dest, cond) =>
               assert(src == node)
@@ -36,9 +36,9 @@ object Emitter {
 //      act()
 //    }
     // cond
-    for (node <- des.nodeList) {
-      when (current_state === des.encode(node).U) {
-        for (act <- node.asInstanceOf[TikState].actionList.reverse) {
+    for ((name, state) <- des.nodes) {
+      when (current_state === des.encode(name).U) {
+        for (act <- state.asInstanceOf[GeneralState].actionList.reverse) {
           act()
         }
       }

@@ -4,9 +4,15 @@ import chisel3._
 //import scala.collection.mutable.Stack
 
 class FSMBase {
-  val desc = new FSMDescription()
-  val currentState = Wire(UInt())
-  val nextState = Wire(UInt())
+  //type info
+  type NodeType = FSMDescriptionConfig.NodeType
+  type EdgeType = FSMDescriptionConfig.EdgeType
+  type ActionType = FSMDescriptionConfig.ActionType
+  type ConditionType = FSMDescriptionConfig.ConditionType
+  // variable
+  var desc: FSMDescription = FSMDescription()
+  val currentState: UInt = Wire(UInt())
+  val nextState: UInt = Wire(UInt())
 }
 
 object InstanciateFSM {
