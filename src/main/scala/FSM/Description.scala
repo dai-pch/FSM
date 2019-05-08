@@ -22,12 +22,14 @@ sealed case class GeneralState(actionList: Array[FSMDescriptionConfig.ActionType
     copy(actionList = actionList :+ act)
   }
 }
+sealed case class SubFSMState(fsm: FSMBase) extends TikState {}
 //  class StartState() extends BaseState {}
 case object EndState extends PseudoState {}
 sealed case class SkipState() extends PseudoState {}
 sealed case class PlaceHolderState() extends PseudoState {}
 
-sealed abstract class BaseTransfer(val source: String, val destination: String) {
+sealed abstract class BaseTransfer(val source: String, val destination: String) {}
+object BaseTransfer {
   def unapply(arg: BaseTransfer): Option[(String, String)] = Some(arg.source, arg.destination)
 }
 sealed case class ConditionalTransfer(override val source: String,
@@ -61,6 +63,7 @@ case class FSMDescription(// Graph properties
                          ) {
   //type info
   type NodeType = FSMDescriptionConfig.NodeType
+  type NodeMap = (String, NodeType)
   type EdgeType = FSMDescriptionConfig.EdgeType
   type ActionType = FSMDescriptionConfig.ActionType
   type ConditionType = FSMDescriptionConfig.ConditionType
@@ -93,10 +96,19 @@ case class FSMDescription(// Graph properties
       case None    => this.copy(nodeMap = nodeMap + (stateName -> state))
     }
   }
-  def filterNodes(cond: (String, NodeType) => Boolean): FSMDescription = {
-    this.copy(nodeMap = nodeMap.toArray.filter(cond.tupled).toMap)
+  def filterNodes(cond: NodeMap => Boolean): FSMDescription = {
+    this.copy(nodeMap = nodeMap.toArray.filter(cond).toMap)
   }
-//  def traverseNode(func: (String, NodeType) => NodeType): FSMDescription = {
+  def mapNodes(cond: NodeMap => Boolean, func: NodeMap => NodeMap): FSMDescription = {
+    mapNodesSeq(cond, Array apply func(_))
+  }
+  def mapNodesSeq(cond: NodeMap => Boolean, func: NodeMap => Seq[NodeMap]): FSMDescription = {
+    this.copy(nodeMap = nodeMap.toArray.map({
+      case (n, s) if cond(n, s) => func(n, s).toArray[NodeMap]
+      case other => Array(other)
+    }).reduce(_++_).toMap)
+  }
+//  def traverseNode(func: NodeMap => NodeType): FSMDescription = {
 //    this.copy(nodeMap = nodeMap.toArray.map({case (k, v) => (k, func(k, v))}).toMap)
 //  }
 //  def procNode(state: String, func: NodeType => NodeType): FSMDescription = {
@@ -105,6 +117,10 @@ case class FSMDescription(// Graph properties
   def +(stateName: String, state: NodeType): FSMDescription = {
     assert(!nodeMap.contains(stateName))
     this.copy(nodeMap = nodeMap + (stateName -> state))
+  }
+  def ++(states: Seq[NodeMap]): FSMDescription = {
+    states.foreach(x => assert(!nodeMap.contains(x._1)))
+    this.copy(nodeMap = nodeMap ++ states)
   }
   def -(stateName: String): FSMDescription = {
     this.copy(nodeMap = nodeMap - stateName)
@@ -121,7 +137,11 @@ case class FSMDescription(// Graph properties
     else
       None
   }
-  def nodes: Array[(String, NodeType)] = {
+  def statesOfType[T <: NodeType](dummy: T):Array[(String, T)] = {
+    nodes.filter(_._2.isInstanceOf[T])
+      .map(x => (x._1, x._2.asInstanceOf[T]))
+  }
+  def nodes: Array[NodeMap] = {
     nodeMap.toArray
   }
   def nodeNames: Array[String] = {
@@ -162,8 +182,28 @@ case class FSMDescription(// Graph properties
   def edges: Array[EdgeType] = {
     edgeArray
   }
-  def statesOfType[T <: NodeType] = {
-    nodeList.filter(_.isInstanceOf[T])
-      .map(_.asInstanceOf[T])
+  // other help function
+  def renameNode(origin: String, name: String): FSMDescription = {
+    this.copy(
+      nodeMap = nodeMap - origin + (name -> nodeMap(origin) ),
+      edgeArray = edgeArray.map({
+        case e@ConditionalTransfer(src, _, _) if src == origin => e.copy(source = name)
+        case e@UnconditionalTransfer(src, _) if src == origin => e.copy(source = name)
+        case e => e
+      })
+      .map({
+        case e@ConditionalTransfer(_, dest, _) if dest == origin => e.copy(destination = name)
+        case e@UnconditionalTransfer(_, dest) if dest == origin => e.copy(destination = name)
+        case e => e
+      })
+    )
+  }
+  def renameNodes(cond: NodeMap => Boolean, func: String => String): FSMDescription = {
+    val origins = nodeMap.toArray.filter(cond).map(_._1)
+    var desc = this
+    for (name <- origins) {
+      desc = desc.renameNode(name, func(name))
+    }
+    desc
   }
 }

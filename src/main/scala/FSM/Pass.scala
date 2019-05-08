@@ -51,34 +51,28 @@ object FSMPassCompose {
   def apply(passes: FSMPass*): FSMComposePass = new FSMComposePass(passes)
 }
 
-object AddSubFSMPass extends FSMSimplePass {
-  override protected def run(des: FSMDescription): FSMDescription = {
-    des.statesOfType[SubFSMState]
-      .foreach(subState => {
-        val subDesc = subState.fsm.desc
-        val newEnd = new SkipState("_EndState")
-        newEnd.edgeList = subState.edgeList.map({
-          case e@ConditionalTransfer => e.copy(source = newEnd)
-          case e@UnconditionalTransfer => e.copy(source = newEnd)
+object MergeSubFSMPass extends FSMSimplePass {
+  override protected def run(description_ : FSMDescription): FSMDescription = {
+    var desc = description_
+    val subs = desc.nodes.filter(_._2.isInstanceOf[SubFSMState]).map(x => (x._1, x._2.asInstanceOf[SubFSMState]))
+    for ((name, sub_state) <- subs) {
+      var sub_desc = sub_state.fsm.desc
+      val addPrefix = name + _
+      sub_desc = sub_desc.replaceState(FSMDescriptionConfig._endStateName, SkipState())
+      sub_desc = sub_desc.renameNodes(_=>true, addPrefix)
+      desc = desc ++ sub_desc.nodes
+      desc = desc ++~ sub_desc.edges
+      desc = desc
+        .mapEdge(_.destination == name, {
+          case e@ConditionalTransfer(_, _, _) => e.copy(destination = addPrefix(sub_desc.entryState) )
+          case e@UnconditionalTransfer(_, _) => e.copy(destination = addPrefix(sub_desc.entryState) )
         })
-        val newStart = new SkipState()
-        subDesc.replaceState(EndState, )
-      })
-    des
-  }
-}
-
-object ReplaceHolderPass extends FSMSimplePass {
-  override protected def run(des: FSMDescription): FSMDescription = {
-    des.statesOfType[PlaceHolderState]
-      .foreach(phs => {
-        val states = des.nodeList.filter(_.stateName == phs.stateName).filterNot(_.isInstanceOf[PlaceHolderState])
-        assert(states.size > 0, s"State ${phs.stateName} not found.")
-        assert(states.size < 2, s"Find multiple state with name ${phs.stateName}.")
-        val real_state = states.head
-        des.replaceState(phs, real_state)
-      })
-    des
+        .mapEdge(_.source == name, {
+          case e@ConditionalTransfer(_, _, _) => e.copy(source = addPrefix(FSMDescriptionConfig._endStateName) )
+          case e@UnconditionalTransfer(_, _) => e.copy(source = addPrefix(FSMDescriptionConfig._endStateName) )
+        })
+    }
+    desc
   }
 }
 
@@ -133,7 +127,7 @@ object DeleteUnreachableStatePass extends FSMSimplePass {
         }
       }
     }
-    des.filterNodes((n, s) => reachable.contains(n))
+    des.filterNodes(x => reachable.contains(x._1))
   }
 }
 
@@ -165,12 +159,13 @@ object CheckPass extends FSMSimplePass {
     des.nodes.foreach({
       case (n, s) => assert(s.isInstanceOf[TikState], s"Unhandled PseudoState $s: $n.")
     })
+    println(des.edges
     des
   }
 }
 
 object PreprocessPass extends FSMComposePass(Seq(
-  ReplaceHolderPass,
+  MergeSubFSMPass,
   MergeSkipPass
 ))
 

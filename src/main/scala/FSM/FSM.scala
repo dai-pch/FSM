@@ -21,9 +21,10 @@ class FSM extends FSMBase {
     desc = desc.setEntry(stateName)
     new StateContext(stateName)
   }
-  def subFSM(stateName: String)(fsm: FSMBase) = {
-    val state =  new SubFSMState(stateName)
-    state.fsm = fsm
+  def subFSM(stateName: String)(fsm: FSMBase): StateContext = {
+    val state = SubFSMState(fsm)
+    desc = desc.insertIfNotFoundG(stateName, state)
+    new StateContext(stateName)
   }
 
   class StateContext(val stateName: String) {
@@ -42,7 +43,7 @@ class FSM extends FSMBase {
     }
 
     class TransferContext(val parent: StateContext, val cond: Option[ConditionType]) {
-      val stateName = parent.stateName
+      private val stateName = parent.stateName
       def transferTo(destName: String): StateContext = {
         cond match {
           case Some(c) => desc = desc +~ ConditionalTransfer(stateName, destName, c)

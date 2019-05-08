@@ -11,8 +11,8 @@ class FSMBase {
   type ConditionType = FSMDescriptionConfig.ConditionType
   // variable
   var desc: FSMDescription = FSMDescription()
-  val currentState: UInt = Wire(UInt())
-  val nextState: UInt = Wire(UInt())
+  lazy val currentState: UInt = Wire(UInt())
+  lazy val nextState: UInt = Wire(UInt())
 }
 
 object InstanciateFSM {
