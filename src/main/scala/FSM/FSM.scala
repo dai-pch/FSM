@@ -21,6 +21,10 @@ class FSM extends FSMBase {
     desc = desc.setEntry(stateName)
     new StateContext(stateName)
   }
+  def subFSM(stateName: String)(fsm: FSMBase) = {
+    val state =  new SubFSMState(stateName)
+    state.fsm = fsm
+  }
 
   class StateContext(val stateName: String) {
     private def addAct(action: ActionType): Unit = {

@@ -162,4 +162,8 @@ case class FSMDescription(// Graph properties
   def edges: Array[EdgeType] = {
     edgeArray
   }
+  def statesOfType[T <: NodeType] = {
+    nodeList.filter(_.isInstanceOf[T])
+      .map(_.asInstanceOf[T])
+  }
 }

@@ -51,6 +51,37 @@ object FSMPassCompose {
   def apply(passes: FSMPass*): FSMComposePass = new FSMComposePass(passes)
 }
 
+object AddSubFSMPass extends FSMSimplePass {
+  override protected def run(des: FSMDescription): FSMDescription = {
+    des.statesOfType[SubFSMState]
+      .foreach(subState => {
+        val subDesc = subState.fsm.desc
+        val newEnd = new SkipState("_EndState")
+        newEnd.edgeList = subState.edgeList.map({
+          case e@ConditionalTransfer => e.copy(source = newEnd)
+          case e@UnconditionalTransfer => e.copy(source = newEnd)
+        })
+        val newStart = new SkipState()
+        subDesc.replaceState(EndState, )
+      })
+    des
+  }
+}
+
+object ReplaceHolderPass extends FSMSimplePass {
+  override protected def run(des: FSMDescription): FSMDescription = {
+    des.statesOfType[PlaceHolderState]
+      .foreach(phs => {
+        val states = des.nodeList.filter(_.stateName == phs.stateName).filterNot(_.isInstanceOf[PlaceHolderState])
+        assert(states.size > 0, s"State ${phs.stateName} not found.")
+        assert(states.size < 2, s"Find multiple state with name ${phs.stateName}.")
+        val real_state = states.head
+        des.replaceState(phs, real_state)
+      })
+    des
+  }
+}
+
 object MergeSkipPass extends FSMSimplePass {
   override protected def run(desc: FSMDescription): FSMDescription = {
     var new_desc = desc
@@ -139,6 +170,7 @@ object CheckPass extends FSMSimplePass {
 }
 
 object PreprocessPass extends FSMComposePass(Seq(
+  ReplaceHolderPass,
   MergeSkipPass
 ))
 
