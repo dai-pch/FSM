@@ -52,7 +52,7 @@ class Seq10010 extends Module {
       .otherwise.transferTo("C")
   })
 
-  io.state := fsm.currentState
+  io.state := fsm.current_state
 }
 
 class FSMUnitTest_Seq10010(c: Seq10010) extends PeekPokeTester(c) {
@@ -140,6 +140,46 @@ class FSMUnitTest_Count21(c: Count21) extends PeekPokeTester(c) {
   }
 }
 
+class ClkDiv2 extends Module {
+  val io = IO(new Bundle {
+    val clk_o = Output(Bool())
+    val state = Output(UInt())
+  })
+
+  io.clk_o := false.B
+
+  val fsm = InstanciateFSM(new FSM {
+    entryState("Zero")
+      .act {
+        io.clk_o := false.B
+      }
+      .otherwise.transferTo("One")
+
+    state("One")
+      .act {
+        io.clk_o := true.B
+      }
+      .otherwise.transferTo("Zero")
+  })
+
+  io.state := fsm.current_state
+}
+
+class FSMUnitTest_ClkDiv2(c: ClkDiv2) extends PeekPokeTester(c) {
+  private val N = 50
+  private val d = c
+
+  //  println(s"Start from state: " + peek(seq.io.state).toString())
+  for (i <- 0 to 1000)
+  {
+    expect(d.io.clk_o, (i%2) == 1)
+//    println(peek(d.io.state).toString())
+    //    println("Send " + d.toString())
+    step(1)
+    //    println(s"Cycle ${id+1}, state: " + peek(seq.io.state).toString() + ". output: " + peek(seq.io.output).toString())
+  }
+}
+
 object FSMTester extends App {
 
   iotesters.Driver.execute(args, () => new Seq10010) {
@@ -147,5 +187,8 @@ object FSMTester extends App {
   }
   iotesters.Driver.execute(args, () => new Count21) {
     c => new FSMUnitTest_Count21(c)
+  }
+  iotesters.Driver.execute(args, () => new ClkDiv2) {
+    c => new FSMUnitTest_ClkDiv2(c)
   }
 }

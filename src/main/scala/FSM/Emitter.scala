@@ -45,8 +45,14 @@ object Emitter {
     }
 
     // some signal
-    fsm.currentState := current_state
-    fsm.nextState := next_state
+    fsm.current_state := current_state
+    fsm.current_state.state_conds.foreach({
+      case (name, sig) => sig := (current_state === des.encode(name).U)
+    })
+    fsm.next_state := next_state
+    fsm.next_state.state_conds.foreach({
+      case (name, sig) => sig := (next_state === des.encode(name).U)
+    })
 
     //debug
 //    printf(p"current state $current_state \n")
