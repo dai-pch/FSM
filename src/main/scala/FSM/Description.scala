@@ -18,7 +18,8 @@ sealed abstract class TikState extends BaseState {}
 sealed abstract class PseudoState extends BaseState {}
 
 sealed case class GeneralState(actionList: Array[FSMDescriptionConfig.ActionType] = Array()) extends TikState {
-  def addAct(act: FSMDescriptionConfig.ActionType) = {
+  def this(act: FSMDescriptionConfig.ActionType) = this(Array(act))
+  def addAct(act: FSMDescriptionConfig.ActionType): GeneralState = {
     copy(actionList = actionList :+ act)
   }
 }
@@ -95,6 +96,9 @@ case class FSMDescription(// Graph properties
       case Some(s) => this
       case None    => this + (stateName, state)
     }
+  }
+  def procNode(name: String, f: NodeType => NodeType): FSMDescription = {
+    mapNodes(_._1 == name, x => (x._1, f(x._2)))
   }
   def filterNodes(cond: NodeMap => Boolean): FSMDescription = {
     this.copy(nodeMap = nodeMap.toArray.filter(cond).toMap)

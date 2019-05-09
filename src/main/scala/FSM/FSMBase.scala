@@ -26,8 +26,21 @@ class FSMBase {
   type ConditionType = FSMDescriptionConfig.ConditionType
   // variable
   var desc: FSMDescription = FSMDescription()
+  lazy val counter = Reg(UInt())
   val current_state = new FSMStateWrapper
   val next_state = new FSMStateWrapper
+  private var counter_width = 0
+  // construct function
+  protected def subFSM(stateName: String, fsm: FSMBase): String = {
+    val state = SubFSMState(fsm)
+    desc = desc.insertIfNotFoundG(stateName, state)
+    stateName
+  }
+  // help functions
+  def warn(x: String): Unit = {
+    Console.err.println("[warning] " + x)
+  }
+  // helper class
 }
 
 object InstanciateFSM {

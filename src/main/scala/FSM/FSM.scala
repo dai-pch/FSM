@@ -22,17 +22,13 @@ class FSM extends FSMBase {
     new StateContext(stateName)
   }
   def subFSM(stateName: String)(fsm: FSMBase): StateContext = {
-    val state = SubFSMState(fsm)
-    desc = desc.insertIfNotFoundG(stateName, state)
+    super.subFSM(stateName, fsm)
     new StateContext(stateName)
   }
-
-  class StateContext(val stateName: String) {
-    private def addAct(action: ActionType): Unit = {
-      desc = desc.addAct(stateName, action)
-    }
+  //
+  class StateContext(val state_name: String) {
     def act(c: => Unit): StateContext = {
-      addAct(() => c)
+      desc = desc.addAct(state_name, () => c)
       this
     }
     def when(cond: ConditionType): TransferContext = {
@@ -43,22 +39,21 @@ class FSM extends FSMBase {
     }
 
     class TransferContext(val parent: StateContext, val cond: Option[ConditionType]) {
-      private val stateName = parent.stateName
+      private val state_name = parent.state_name
       def transferTo(destName: String): StateContext = {
         cond match {
-          case Some(c) => desc = desc +~ ConditionalTransfer(stateName, destName, c)
-          case None    => desc = desc +~ UnconditionalTransfer(stateName, destName)
+          case Some(c) => desc = desc +~ ConditionalTransfer(state_name, destName, c)
+          case None    => desc = desc +~ UnconditionalTransfer(state_name, destName)
         }
         parent
       }
       def transferToEnd: StateContext = {
         cond match {
-          case Some(c) => desc = desc +~ ConditionalTransfer(stateName, FSMDescriptionConfig._endStateName, c)
-          case None    => desc = desc +~ UnconditionalTransfer(stateName, FSMDescriptionConfig._endStateName)
+          case Some(c) => desc = desc +~ ConditionalTransfer(state_name, FSMDescriptionConfig._endStateName, c)
+          case None    => desc = desc +~ UnconditionalTransfer(state_name, FSMDescriptionConfig._endStateName)
         }
         parent
       }
     }
   }
-  //
 }
