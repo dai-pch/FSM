@@ -93,7 +93,7 @@ case class FSMDescription(// Graph properties
     nodeMap.get(stateName) match {
       case Some(PlaceHolderState()) => replaceState(stateName, state)
       case Some(s) => this
-      case None    => this.copy(nodeMap = nodeMap + (stateName -> state))
+      case None    => this + (stateName, state)
     }
   }
   def filterNodes(cond: NodeMap => Boolean): FSMDescription = {
@@ -115,7 +115,7 @@ case class FSMDescription(// Graph properties
 //    this.copy(nodeMap = nodeMap + (state -> func(nodeMap(state))))
 //  }
   def +(stateName: String, state: NodeType): FSMDescription = {
-    assert(!nodeMap.contains(stateName))
+    assert(!nodeMap.contains(stateName), s"States $stateName alrady exists.")
     this.copy(nodeMap = nodeMap + (stateName -> state))
   }
   def ++(states: Seq[NodeMap]): FSMDescription = {
@@ -205,5 +205,9 @@ case class FSMDescription(// Graph properties
       desc = desc.renameNode(name, func(name))
     }
     desc
+  }
+
+  override def toString: String = {
+    "Nodes: " + nodeMap.toString() + ", \nEdges: " + edgeArray.map(_.toString()).reduce(_+ ", " +_)
   }
 }

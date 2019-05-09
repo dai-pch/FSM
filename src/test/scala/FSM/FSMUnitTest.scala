@@ -120,13 +120,14 @@ class FSMUnitTest_Count21(c: Count21) extends PeekPokeTester(c) {
   private val count = c
 
   //  println(s"Start from state: " + peek(seq.io.state).toString())
-  for (i <- 0 to 20)
+  poke(count.io.start, false)
+  for (i <- 0 to 25)
   {
     if (i == 3)
       poke(count.io.start, true)
     else
       poke(count.io.start, false)
-    if (i == 24) {
+    if (i == 26) {
       expect(count.io.done, true)
       expect(count.io.count, 21)
     } else {

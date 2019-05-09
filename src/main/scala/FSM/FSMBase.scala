@@ -16,9 +16,9 @@ class FSMBase {
 }
 
 object InstanciateFSM {
-  def apply(fsm: FSMBase): FSMBase = {
+  def apply(fsm: FSMBase, debug_ : Boolean = false): FSMBase = {
     val desc = fsm.desc
-    val compiler = IdleFSMCompiler
+    val compiler = IdleFSMCompiler(debug = debug_)
     val compiled = compiler.compile(desc)
     Emitter(compiled, fsm)
     fsm

@@ -11,13 +11,28 @@ abstract class FSMPass {
   type ActionType = FSMDescriptionConfig.ActionType
   type ConditionType = FSMDescriptionConfig.ConditionType
   //
+  var debug: Boolean = false
   protected def run(des: FSMDescription): FSMDescription
   def runInternal(des: FSMDescription): FSMDescription
 }
 
 abstract class FSMSimplePass extends FSMPass {
+  def apply(debug_ : Boolean = false): this.type = {
+    debug = debug_
+    this
+  }
+
   final override def runInternal(des: FSMDescription): FSMDescription = {
-    run(des)
+    if (debug) {
+      println(s"Before pass ${this.getClass.getName}.")
+      println(des.toString())
+    }
+    val desc = run(des)
+    if (debug) {
+      println(s"After pass ${this.getClass.getName}.")
+      println(desc.toString())
+    }
+    desc
   }
 }
 
@@ -38,17 +53,21 @@ abstract class FSMIteratePass extends FSMPass {
   }
 }
 
-class FSMComposePass(val passList: Seq[FSMPass]) extends FSMSimplePass {
+class FSMComposePass(val passList: Seq[FSMPass], debug_ : Boolean = false) extends FSMSimplePass {
+  debug = debug_
   def run(des: FSMDescription): FSMDescription = {
     var fsm = des
-    for (pass <- passList)
+    for (pass <- passList) {
+      pass.debug = debug
       fsm = pass.runInternal(fsm)
+    }
     fsm
   }
 }
 
 object FSMPassCompose {
   def apply(passes: FSMPass*): FSMComposePass = new FSMComposePass(passes)
+  def apply(debug: Boolean, passes: FSMPass*): FSMComposePass = new FSMComposePass(passes, debug)
 }
 
 object MergeSubFSMPass extends FSMSimplePass {
@@ -57,7 +76,7 @@ object MergeSubFSMPass extends FSMSimplePass {
     val subs = desc.statesOfType(SubFSMState(null))
     for ((name, sub_state) <- subs) {
       var sub_desc = sub_state.fsm.desc
-      val addPrefix = name + _
+      val addPrefix = name + "_" + _
       sub_desc = sub_desc.replaceState(FSMDescriptionConfig._endStateName, SkipState())
       sub_desc = sub_desc.renameNodes(_=>true, addPrefix)
       desc = desc ++ sub_desc.nodes
@@ -181,6 +200,10 @@ abstract class FSMCompiler {
 }
 
 object IdleFSMCompiler extends FSMCompiler {
+  def apply(debug : Boolean = false): this.type = {
+    pass.debug = debug
+    this
+  }
   override val pass = FSMPassCompose(
     IdlePass,
     PreprocessPass,
