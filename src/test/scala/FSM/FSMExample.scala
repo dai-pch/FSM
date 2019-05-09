@@ -2,18 +2,14 @@ package libpc.FSM
 
 import chisel3._
 
-trait FSM1Input extends Bundle {
-  val w_i = Bool()
-}
-
-trait FSM1Output extends Bundle {
-  val z_o = Bool()
-}
-
 class FSMExample extends Module {
   val io = IO(new Bundle {
-    val input = Input(new Bundle with FSM1Input)
-    val output = Output(new Bundle with FSM1Output)
+    val input = Input(new Bundle {
+      val z_o = Bool()
+    })
+    val output = Output(new Bundle {
+      val w_i = Bool()
+    })
   })
 
   io.output.z_o := false.B
