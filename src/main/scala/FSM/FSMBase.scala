@@ -22,7 +22,7 @@ class FSMBase {
   //type info
   type NodeType = FSMDescriptionConfig.NodeType
   type EdgeType = FSMDescriptionConfig.EdgeType
-  type ActionType = FSMDescriptionConfig.ActionType
+  type ActType = FSMDescriptionConfig.ActType
   type ConditionType = FSMDescriptionConfig.ConditionType
   // variable
   var desc: FSMDescription = FSMDescription()

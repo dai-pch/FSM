@@ -6,21 +6,36 @@ import chisel3._
 object FSMDescriptionConfig {
   type NodeType = BaseState
   type EdgeType = BaseTransfer
-  type ActionType = () => Unit
+  type ActType = () => Unit
+  type ActionType = BaseAction
   type ConditionType = Bool
   // configs
   val _endStateName = "_EndState"
 }
+
+sealed abstract class BaseAction {
+  def act: () => Unit
+}
+
+sealed case class NormalAction(act: FSMDescriptionConfig.ActType) extends BaseAction {}
+sealed case class PreAction(act: FSMDescriptionConfig.ActType) extends BaseAction {}
+sealed case class LastAction(act: FSMDescriptionConfig.ActType) extends BaseAction {}
 
 sealed abstract class BaseState {}
 
 sealed abstract class TikState extends BaseState {}
 sealed abstract class PseudoState extends BaseState {}
 
-sealed case class GeneralState(actionList: Array[FSMDescriptionConfig.ActionType] = Array()) extends TikState {
-  def this(act: FSMDescriptionConfig.ActionType) = this(Array(act))
+sealed case class GeneralState(
+                                actionList: Array[FSMDescriptionConfig.ActionType] = Array(),
+                                last_flag: Bool = Wire(Bool())
+                              ) extends TikState {
+//  def this(act: FSMDescriptionConfig.ActType) = this(Array(NormalAction(act)))
   def addAct(act: FSMDescriptionConfig.ActionType): GeneralState = {
     copy(actionList = actionList :+ act)
+  }
+  def addAct(act: FSMDescriptionConfig.ActType): GeneralState = {
+    addAct(NormalAction(act))
   }
 }
 sealed case class SubFSMState(fsm: FSMBase) extends TikState {}
@@ -66,6 +81,7 @@ case class FSMDescription(// Graph properties
   type NodeType = FSMDescriptionConfig.NodeType
   type NodeMap = (String, NodeType)
   type EdgeType = FSMDescriptionConfig.EdgeType
+  type ActType = FSMDescriptionConfig.ActType
   type ActionType = FSMDescriptionConfig.ActionType
   type ConditionType = FSMDescriptionConfig.ConditionType
   // class methods
@@ -87,6 +103,15 @@ case class FSMDescription(// Graph properties
     assert((nodeMap contains name) && nodeMap(name).isInstanceOf[GeneralState], "Can not add actions into pseudo state.")
     val node = nodeMap(name).asInstanceOf[GeneralState]
     replaceState(name, node.addAct(act))
+  }
+  def addAct(name: String, act: ActType): FSMDescription = {
+    addAct(name, NormalAction(act))
+  }
+  def addPre(name: String, act: ActType): FSMDescription = {
+    addAct(name, PreAction(act))
+  }
+  def addLast(name: String, act: ActType): FSMDescription = {
+    addAct(name, LastAction(act))
   }
   def insertIfNotFound(name: String): FSMDescription = insertIfNotFoundG(name, GeneralState())
   def holdIfNotFound(name: String): FSMDescription = insertIfNotFoundG(name, PlaceHolderState())

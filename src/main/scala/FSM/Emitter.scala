@@ -31,18 +31,25 @@ object Emitter {
     }
 
     // output logic
-    //default output
-//    for (act <- des.defaultAction) {
-//      act()
-//    }
-    // cond
     for ((name, state) <- des.nodes) {
-      when (current_state === des.encode(name).U) {
-        for (act <- state.asInstanceOf[GeneralState].actionList.reverse) {
-          act()
+      for (action <- state.asInstanceOf[GeneralState].actionList.reverse) {
+        action match {
+          case NormalAction(act) =>
+            when (current_state === des.encode(name).U) {
+              act()
+            }
+          case PreAction(act) =>
+            when (next_state === des.encode(name).U) {
+              act()
+            }
+          case LastAction(act) =>
+            when ((current_state === des.encode(name).U) && state.asInstanceOf[GeneralState].last_flag) {
+              act()
+            }
         }
       }
     }
+    //
 
     // some signal
     fsm.current_state := current_state

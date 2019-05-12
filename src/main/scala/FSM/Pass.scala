@@ -8,7 +8,7 @@ abstract class FSMPass {
   //type info
   type NodeType = FSMDescriptionConfig.NodeType
   type EdgeType = FSMDescriptionConfig.EdgeType
-  type ActionType = FSMDescriptionConfig.ActionType
+  type ActionType = FSMDescriptionConfig.ActType
   type ConditionType = FSMDescriptionConfig.ConditionType
   //
   var debug: Boolean = false
@@ -68,6 +68,23 @@ class FSMComposePass(val passList: Seq[FSMPass], debug_ : Boolean = false) exten
 object FSMPassCompose {
   def apply(passes: FSMPass*): FSMComposePass = new FSMComposePass(passes)
   def apply(debug: Boolean, passes: FSMPass*): FSMComposePass = new FSMComposePass(passes, debug)
+}
+
+object AssignLastFlagPass extends FSMSimplePass {
+  override protected def run(description_ : FSMDescription): FSMDescription = {
+    val desc = description_
+    desc.nodes.foreach({
+      case (name, GeneralState(_, last)) => last := desc.edgesFrom(name).foldRight(false.B)({
+        case (ConditionalTransfer(_, des, cond), r) if des != name => cond || r
+        case (UnconditionalTransfer(_, des), _) if des != name => true.B
+        case (ConditionalTransfer(_, des, cond), r) if des == name => !cond && r
+        case (UnconditionalTransfer(_, des), _) if des == name => false.B
+      })
+      case (_, SubFSMState(fsm)) => fsm.desc = run(fsm.desc)
+      case others => Unit
+    })
+    desc
+  }
 }
 
 object MergeSubFSMPass extends FSMSimplePass {
@@ -183,6 +200,7 @@ object CheckPass extends FSMSimplePass {
 }
 
 object PreprocessPass extends FSMComposePass(Seq(
+  AssignLastFlagPass,
   MergeSubFSMPass,
   MergeSkipPass
 ))
