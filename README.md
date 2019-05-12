@@ -86,7 +86,7 @@ Clock | State | Actions to be executed
 2     | S1    | S1.act S1.actPre      
 3     | S1    | S1.act S1.actPre      
 4     | S1    | S1.act S1.actPre      
-5     | S1    | S1.act S2.actPre S2.actLast
+5     | S1    | S1.act S1.actLast S2.actPre
 6     | S2    | S2.act                
 7     | ...   | ...                   
 
