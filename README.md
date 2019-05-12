@@ -4,7 +4,7 @@ A Zero Cost Abstruction of FSM(Finite State Machine) circuits based on chisel3.
 ## A Brief Description
 This project is a library based on chisel3, which provides an easy way to construct FSM circuits in chisel by a higher level abstruction with minimal overhead.
 
-It can be used in two mode: the `FSM` mode and the `ControlFlow` mode. 
+It can be used in two mode: the [FSM](#fsm-mode) mode and the [ControlFlow](#control-flow-mode) mode. 
 
 ## Add To Dependencies
 You should add this library into dependencies of your projects. 
@@ -14,7 +14,7 @@ Add following lines into your chisel project:
 
 ```
 
-## FSM Mode
+## <span id="fsm-mode">FSM Mode</span>
 In this mode, user can write an FSM by descriping states and it's actions. 
 
 Here is a simple example that shows you how to construct a FSM.
@@ -25,35 +25,31 @@ import FSM._
 
 class FSMExample extends Module {
   val io = IO(new Bundle {
-    val input = Input(new Bundle {
-      val w_i = Bool()
-    })
-    val output = Output(new Bundle {
-      val z_o = Bool()
-    })
+    val w_i = Input(Bool())
+    val z_o = Output(Bool())
   })
 
-  io.output.z_o := false.B
+  io.z_o := false.B
 
   val fsm = InstanciateFSM(new FSM {
     entryState("Idle")
       .act {
-        io.output.z_o := false.B
+        io.z_o := false.B
       }
-      .when(io.input.w_i === true.B).transferTo("s0")
+      .when(io.w_i === true.B).transferTo("s0")
 
     state("s0")
       .act {
-        io.output.z_o := false.B
+        io.z_o := false.B
       }
-      .when(io.input.w_i === false.B).transferTo("Idle")
-      .when(io.input.w_i === true.B).transferTo("s1")
+      .when(io.w_i === false.B).transferTo("Idle")
+      .when(io.w_i === true.B).transferTo("s1")
 
     state("s1")
       .act {
-        io.output.z_o := true.B
+        io.z_o := true.B
       }
-      .when(!io.input.w_i).transferTo("Idle")
+      .when(!io.w_i).transferTo("Idle")
       .otherwise.transferTo("s1")
   })
 }
@@ -95,7 +91,7 @@ Clock | State | Actions to be executed
 7     | ...   | ...                   
 
 
-## Control Flow Mode
+## <span id="control-flow-mode">Control Flow Mode</span>
 
 Coming soon...
 
