@@ -41,7 +41,7 @@ object Emitter {
     }
     // last act
     for ((name, state) <- des.nodes) {
-      for (action <- state.asInstanceOf[GeneralState].actionList.reverse.filter(_.isInstanceOf[LastAction]).map(_.act)) {
+      for (act <- state.asInstanceOf[GeneralState].actionList.reverse.filter(_.isInstanceOf[LastAction]).map(_.act)) {
         when ((current_state === des.encode(name).U) && state.asInstanceOf[GeneralState].last_flag) {
           act()
         }
@@ -49,7 +49,7 @@ object Emitter {
     }
     // pre act
     for ((name, state) <- des.nodes) {
-      for (action <- state.asInstanceOf[GeneralState].actionList.reverse.filter(_.isInstanceOf[PreAction]).map(_.act)) {
+      for (act <- state.asInstanceOf[GeneralState].actionList.reverse.filter(_.isInstanceOf[PreAction]).map(_.act)) {
         when (next_state === des.encode(name).U) {
           act()
         }
