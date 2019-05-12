@@ -10,31 +10,31 @@ class CFExample extends Module {
 
   val fsm = new ControlFlow {
     start {
-      io.out := false.B
+      io.output := false.B
     }
 
     tik {
-      io.out := true.B
+      io.output := true.B
     }.tag("tag1")
 
     run {
       tik {
-        io.out := false.B
+        io.output := false.B
       }
       tik {
-        io.out := true.B
+        io.output := true.B
       }
     }.until(io.in)
 
     loop(!io.in) {
       tik {
-        io.out := false.B
+        io.output := false.B
       }
     }
 
-    repeat(3.U) {
+    repeat(3) {
       tik {
-        io.out := true.B
+        io.output := true.B
       }
     }
 
@@ -42,16 +42,16 @@ class CFExample extends Module {
       tik {
 
       }
-    } or_branch(!io.in) {
+    }.or_branch(!io.in) {
       tik {
 
       }
-    } or {
+    }.or {
       goto("tag1")
     }
 
     subFSM(new FSM {
-      entryState("subStart").otherwise.transferToEnd()
+      entryState("subStart").otherwise.transferToEnd
     })
 
   }
@@ -60,10 +60,10 @@ class CFExample extends Module {
 class FSMExample extends Module {
   val io = IO(new Bundle {
     val input = Input(new Bundle {
-      val z_o = Bool()
+      val w_i = Bool()
     })
     val output = Output(new Bundle {
-      val w_i = Bool()
+      val z_o = Bool()
     })
   })
 

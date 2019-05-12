@@ -18,8 +18,8 @@ class ControlFlow extends FSMBase {
   var cur_state: String = FSMDescriptionConfig._endStateName
   // for FSM construction
   def tik(act: => Unit): StateContext = {
-    val action: ActionType = () => act
-    val state_name = pushState(state = GeneralState(action))
+    val action: ActType = () => act
+    val state_name = pushState(state = GeneralState().addAct(action))
     new StateContext(state_name).act(() => act)
   }
   def start(act: => Unit): StateContext = {
@@ -51,7 +51,11 @@ class ControlFlow extends FSMBase {
     desc = desc +~ UnconditionalTransfer(cur_state, end_name)
     cur_state = end_name
   }
-  def repeat(times: UInt)(contents: => Unit) = {
+  def repeat(times: Int)(contents: => Unit): Unit = {
+    for (_ <- 0 to times)
+      contents
+  }
+  protected def repeat(times: UInt)(contents: => Unit): Unit = {
     val start_name = pushState(state = SkipState())
     val end_name = insertState(state = SkipState())
     desc = desc +~ ConditionalTransfer(start_name, end_name, times === 0.U)
@@ -61,11 +65,14 @@ class ControlFlow extends FSMBase {
       warn("Last state of repeat is not TikState, a GeneralState is added.")
       pushState()
     }
-    desc = desc.procNode(cur_state, x=> x.asInstanceOf[GeneralState].addLast({
-      when(counter === times - 1.U) {counter := counter + 1} .otherwise {counter := 0.U}
-    }))
+    desc = desc.procNode(cur_state, x=> x.asInstanceOf[GeneralState].addAct(LastAction(() => {
+      when(counter === times - 1.U) {counter := counter + 1.U} .otherwise {counter := 0.U}
+    })))
     desc = desc +~ ConditionalTransfer(end_name, start_name, !(counter === times - 1.U))
     cur_state = end_name
+  }
+  def goto(dest: String): Unit = {
+    desc = desc +~ UnconditionalTransfer(cur_state, dest)
   }
   // help function
   protected def insertState(state_name: String = gen_name(),
@@ -93,8 +100,12 @@ class ControlFlow extends FSMBase {
 
   //
   class StateContext(val state_name: String) {
-    def act(action: ActionType): this.type = {
-      desc = desc.addAct(state_name, () => action)
+    def act(action: ActType): this.type = {
+      desc = desc.addAct(state_name, action)
+      this
+    }
+    def tag(name: String): this.type = {
+      desc = desc.renameNode(state_name, name)
       this
     }
   }
