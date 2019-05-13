@@ -1,9 +1,9 @@
-package libpc.FSM
+package fsm.core
 
 import chisel3._
 //import scala.collection.mutable.Stack
 
-class FSM extends FSMBase {
+class FSMFrontEnd extends FSMBase {
   // for FSM construction
   def state(stateName: String): StateContext = {
     desc = desc.insertIfNotFound(stateName)

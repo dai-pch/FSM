@@ -1,9 +1,9 @@
-package libpc.FSM
+package fsm.core
 
 import chisel3._
 //import scala.collection.mutable.Stack
 
-object ControlFlow {
+object ControlFlowFrontEnd {
   private var name_count = 0
   def get_cnt: Int = {
     val c = name_count
@@ -12,7 +12,7 @@ object ControlFlow {
   }
 }
 
-class ControlFlow extends FSMBase {
+class ControlFlowFrontEnd extends FSMBase {
   desc = desc + ("_StartState", SkipState())
   // for state record
   var cur_state: String = FSMDescriptionConfig._endStateName
@@ -95,7 +95,7 @@ class ControlFlow extends FSMBase {
     state_name
   }
   protected def gen_name(): String = {
-    "_" + ControlFlow.get_cnt.toString()
+    "_" + ControlFlowFrontEnd.get_cnt.toString()
   }
 
   //

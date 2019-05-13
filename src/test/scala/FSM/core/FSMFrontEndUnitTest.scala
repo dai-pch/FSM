@@ -1,4 +1,4 @@
-package libpc.FSM
+package fsm.core
 
 import java.io.OutputStream
 
@@ -16,7 +16,7 @@ class Seq10010 extends Module {
 
   io.output := false.B
 
-  val fsm = InstanciateFSM(new FSM {
+  val fsm = InstanciateFSM(new FSMFrontEnd {
     entryState("Idle")
       .act {
         io.output := false.B
@@ -86,7 +86,7 @@ class Count21 extends Module {
   io.done := false.B
   io.count := 0.U
 
-  val fsm = InstanciateFSM(new FSM {
+  val fsm = InstanciateFSM(new FSMFrontEnd {
     entryState("Idle")
       .when(io.start).transferTo("ClearCnt")
 
@@ -96,7 +96,7 @@ class Count21 extends Module {
       }
       .otherwise.transferTo("Run")
 
-    subFSM("Run")(new FSM {
+    subFSM("Run")(new FSMFrontEnd {
       entryState("Add")
         .act {
           cnt := cnt + 1.U
@@ -148,7 +148,7 @@ class ClkDiv2 extends Module {
 
   io.clk_o := false.B
 
-  val fsm = InstanciateFSM(new FSM {
+  val fsm = InstanciateFSM(new FSMFrontEnd {
     entryState("Zero")
       .act {
         io.clk_o := false.B

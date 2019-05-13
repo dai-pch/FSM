@@ -1,6 +1,7 @@
-package libpc.FSM
+package fsm.core
 
 import chisel3._
+
 import scala.collection.mutable
 
 class FSMStateWrapper {

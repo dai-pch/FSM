@@ -1,4 +1,4 @@
-package libpc.FSM
+package fsm.core
 
 import chisel3._
 

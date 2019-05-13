@@ -1,4 +1,4 @@
-package libpc.FSM
+package fsm.core
 
 abstract class FSMException extends Exception {}
 

@@ -1,4 +1,4 @@
-package libpc.FSM
+package fsm.core
 
 import chisel3._
 import chisel3.util.log2Ceil
