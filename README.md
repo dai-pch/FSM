@@ -11,7 +11,8 @@ You should add this library into dependencies of your projects.
 
 Add following lines into your chisel project:
 ```
-
+lazy val FSMGenerator = RootProject(uri("git://github.com/dai-pch/FSM.git#master"))
+<your project>.dependsOn(FSMGenerator)
 ```
 
 ## <span id="fsm-mode">FSM Mode</span>
@@ -69,25 +70,25 @@ Second, write FSM description inside FSM class.
 Last, use `InstanciateFSM` to launch an FSM.
 
 ### Action module
-In FSM, an actions is some chisel sentances that will be executed during a state. This is good for combinational logic. 
-However, if you want to assign some value to a register, it could be problematic since values will be assigned to the input of a register 
-and will only be seen during next clock. That makes it hard to construct a Moore State Machine with some registers as output.
+In FSM, an action is a group of chisel sentance that will be executed during a state. This is fine for combinational logic. 
+However, if you want to assign some value to a register, it could be problematic. Because in chisel's hardware module, values will be assigned to the input of a register 
+and can only be seen the next clock. That makes it hard to construct a Moore State Machine with some registers as outputs.
 
-To overcome this problem, FSM provides a method called `actPre`, which has the same type with `act`. 
+To overcome this problem, FSM provides a method called `actPre`, which can be used the same with `act`. 
 Actions added by `actPre` will be executed when `next_state == <state_name>` instead of `current_state == <state_name>`, 
 makes it easy to operate register in an FSM.
 
-More detiled, the action module of a state is as follows:
+More detiled, the action module is as follows:
 
 Clock | State | Actions to be executed
 ------|-------|-----------------------
 0     | S0    | S0.act                
-1     | S0    | S0.act S1.actPre      
-2     | S1    | S1.act S1.actPre      
-3     | S1    | S1.act S1.actPre      
-4     | S1    | S1.act S1.actPre      
-5     | S1    | S1.act S1.actLast S2.actPre
-6     | S2    | S2.act                
+1     | S0    | S0.act        S1.actPre      
+2     | S1    |        S1.act S1.actPre      
+3     | S1    |        S1.act S1.actPre      
+4     | S1    |        S1.act S1.actPre      
+5     | S1    |        S1.act           S1.actLast S2.actPre
+6     | S2    |                                              S2.act                
 7     | ...   | ...                   
 
 
