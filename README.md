@@ -11,7 +11,8 @@ You should add this library into dependencies of your projects.
 
 Add following lines into your chisel project:
 ```
-
+lazy val FSMGenerator = RootProject(uri("git://github.com/dai-pch/FSM.git#master"))
+<your project>.dependsOn(FSMGenerator)
 ```
 
 ## <span id="fsm-mode">FSM Mode</span>
