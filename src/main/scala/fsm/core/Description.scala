@@ -30,6 +30,7 @@ sealed case class GeneralState(
                                 actionList: Array[FSMDescriptionConfig.ActionType] = Array(),
                                 last_flag: Bool = Wire(Bool())
                               ) extends TikState {
+  last_flag := false.B
 //  def this(act: FSMDescriptionConfig.ActType) = this(Array(NormalAction(act)))
   def addAct(act: FSMDescriptionConfig.ActionType): GeneralState = {
     copy(actionList = actionList :+ act)

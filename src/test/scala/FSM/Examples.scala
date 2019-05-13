@@ -7,7 +7,9 @@ class CFExample extends Module {
     val output = Output(Bool())
   })
 
-  val fsm = new ControlFlow {
+  io.output := false.B
+
+  val fsm = InstanciateFSM(new ControlFlow {
     start {
       io.output := false.B
     }
@@ -20,6 +22,7 @@ class CFExample extends Module {
       tik {
         io.output := false.B
       }
+
       tik {
         io.output := true.B
       }
@@ -50,10 +53,13 @@ class CFExample extends Module {
     }
 
     subFSM(new FSM {
-      entryState("subStart").otherwise.transferToEnd
+      entryState("subStart")
+        .otherwise.transferToEnd
     })
 
-  }
+    end
+
+  })
 }
 
 class FSMExample extends Module {
@@ -87,6 +93,7 @@ class FSMExample extends Module {
   })
 }
 
-object FSMMain extends App {
+object GenExamples extends App {
   chisel3.Driver.execute(args, () => new FSMExample)
+  chisel3.Driver.execute(args, () => new CFExample)
 }

@@ -74,6 +74,9 @@ class ControlFlowFrontEnd extends FSMBase {
   def goto(dest: String): Unit = {
     desc = desc +~ UnconditionalTransfer(cur_state, dest)
   }
+  def end: Unit = {
+    desc = desc +~ UnconditionalTransfer(cur_state, FSMDescriptionConfig._endStateName)
+  }
   // help function
   protected def insertState(state_name: String = gen_name(),
                            state: NodeType = GeneralState()
@@ -95,21 +98,23 @@ class ControlFlowFrontEnd extends FSMBase {
     state_name
   }
   protected def gen_name(): String = {
-    "_" + ControlFlowFrontEnd.get_cnt.toString()
+    "_" + ControlFlowFrontEnd.get_cnt.toString
   }
 
   //
-  class StateContext(val state_name: String) {
+  class StateContext(private var state_name: String) {
     def act(action: ActType): this.type = {
       desc = desc.addAct(state_name, action)
       this
     }
     def tag(name: String): this.type = {
       desc = desc.renameNode(state_name, name)
+      cur_state = name
+      state_name = name
       this
     }
   }
-  class BranchContext(val start_name: String, val end_name: String) {
+  class BranchContext(private val start_name: String, private val end_name: String) {
     protected def new_branch(cond_ : Option[ConditionType], contents: () => Unit): this.type = {
       cur_state = start_name
       pushState(state = SkipState(), cond = cond_)
