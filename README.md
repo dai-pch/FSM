@@ -22,7 +22,7 @@ Here is a simple example that shows you how to construct a FSM.
 
 ```scala
 import chisel3._
-import FSM._
+import fsm._
 
 class FSMExample extends Module {
   val io = IO(new Bundle {
