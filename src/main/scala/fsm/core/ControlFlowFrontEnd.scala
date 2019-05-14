@@ -128,10 +128,11 @@ class ControlFlowFrontEnd extends FSMBase {
   }
   class BranchContext(private val start_name: String, private val end_name: String) {
     protected def new_branch(cond_ : Option[ConditionType], contents: () => Unit): this.type = {
+      desc = desc -~ UnconditionalTransfer(start_name, end_name)
       cur_state = start_name
       pushState(state = SkipState(), cond = cond_)
       contents()
-      desc = desc +~ UnconditionalTransfer(cur_state, end_name)
+      desc = desc +~ UnconditionalTransfer(cur_state, end_name) +~ UnconditionalTransfer(start_name, end_name)
       cur_state = end_name
       this
     }
