@@ -17,33 +17,32 @@ class ControlFlowFrontEnd extends FSMBase {
   // for state record
   var cur_state: String = FSMDescriptionConfig._endStateName
   // for FSM construction
-  def tik(act: => Unit): StateContext = {
-    val action: ActType = () => act
-    val state_name = pushState(state = GeneralState().addAct(action))
-    new StateContext(state_name).act(() => act)
+  protected def tik(act: => Unit): StateContext = {
+    val state_name = pushState()
+    StateContext(state_name).act(act)
   }
-  def start(act: => Unit): StateContext = {
+  protected def start(act: => Unit): StateContext = {
     val ctxt = tik(act)
     desc = desc.setEntry(cur_state)
-    ctxt
+    ctxt.copy(is_start = true)
   }
-  def subFSM(fsm: FSMBase): Unit = {
+  protected def subFSM(fsm: FSMBase): Unit = {
     val name = super.subFSM(gen_name(), fsm)
     desc = desc +~ UnconditionalTransfer(cur_state, name)
     cur_state = name
   }
-  def branch(cond: ConditionType)(contents: => Unit): BranchContext = {
+  protected def branch(cond: ConditionType)(contents: => Unit): BranchContext = {
     val start_name = pushState(state = SkipState())
     val end_name = insertState(state = SkipState())
     new BranchContext(start_name, end_name).or_branch(cond)(contents)
   }
-  def run(contents: => Unit): RunContext = {
+  protected def run(contents: => Unit): RunContext = {
     val start_name = pushState(state = SkipState())
     contents
     val end_name = pushState(state = SkipState())
     new RunContext(start_name, end_name)
   }
-  def loop(cond: ConditionType)(contents: => Unit): Unit = {
+  protected def loop(cond: ConditionType)(contents: => Unit): Unit = {
     val start_name = pushState(state = SkipState())
     val end_name = pushState(state = SkipState(), cond = Some(!cond))
     cur_state = start_name
@@ -51,11 +50,11 @@ class ControlFlowFrontEnd extends FSMBase {
     desc = desc +~ UnconditionalTransfer(cur_state, end_name)
     cur_state = end_name
   }
-  def repeat(times: Int)(contents: => Unit): Unit = {
+  protected def repeat(times: Int)(contents: => Unit): Unit = {
     for (_ <- 0 to times)
       contents
   }
-  protected def repeat(times: UInt)(contents: => Unit): Unit = {
+  private def repeat(times: UInt)(contents: => Unit): Unit = {
     val start_name = pushState(state = SkipState())
     val end_name = insertState(state = SkipState())
     desc = desc +~ ConditionalTransfer(start_name, end_name, times === 0.U)
@@ -71,21 +70,21 @@ class ControlFlowFrontEnd extends FSMBase {
     desc = desc +~ ConditionalTransfer(end_name, start_name, !(counter === times - 1.U))
     cur_state = end_name
   }
-  def goto(dest: String): Unit = {
+  protected def goto(dest: String): Unit = {
     desc = desc +~ UnconditionalTransfer(cur_state, dest)
   }
-  def end: Unit = {
+  protected def end: Unit = {
     desc = desc +~ UnconditionalTransfer(cur_state, FSMDescriptionConfig._endStateName)
   }
   // help function
-  protected def insertState(state_name: String = gen_name(),
+  private def insertState(state_name: String = gen_name(),
                            state: NodeType = GeneralState()
                           ): String = {
     desc = desc.insertIfNotFoundG(state_name, state)
     cur_state = state_name
     state_name
   }
-  protected def pushState(state_name: String = gen_name(),
+  private def pushState(state_name: String = gen_name(),
                            state: NodeType = GeneralState(),
                            cond: Option[ConditionType] = None
                           ): String = {
@@ -102,15 +101,26 @@ class ControlFlowFrontEnd extends FSMBase {
   }
 
   //
-  class StateContext(private var state_name: String) {
-    def act(action: ActType): this.type = {
-      desc = desc.addAct(state_name, action)
+  case class StateContext(private var state_name: String, private val is_start: Boolean = false) {
+    def act(act: => Unit): this.type = {
+      desc = desc.addAct(state_name, () => act)
+      this
+    }
+    def actPre(act: => Unit): this.type = {
+      desc = desc.addPre(state_name, () => act)
+      this
+    }
+    def actLast(act: => Unit): this.type = {
+      desc = desc.addLast(state_name, () => act)
       this
     }
     def tag(name: String): this.type = {
       desc = desc.renameNode(state_name, name)
       cur_state = name
       state_name = name
+      if (is_start) {
+        desc = desc.setEntry(name)
+      }
       this
     }
   }
