@@ -7,7 +7,7 @@ import chisel3.iotesters
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 
 // test sequence 10010
-class Seq10010 extends Module {
+class FSMSeq10010 extends Module {
   val io = IO(new Bundle {
     val input = Input(Bool())
     val output = Output(Bool())
@@ -55,7 +55,7 @@ class Seq10010 extends Module {
   io.state := fsm.current_state
 }
 
-class FSMUnitTest_Seq10010(c: Seq10010) extends PeekPokeTester(c) {
+class FSMUnitTest_Seq10010(c: FSMSeq10010) extends PeekPokeTester(c) {
   private val N = 50000
   private val seq = c
   private val send_v: Seq[Boolean] = (1 to N).map(x => (new scala.util.Random).nextBoolean())
@@ -74,7 +74,7 @@ class FSMUnitTest_Seq10010(c: Seq10010) extends PeekPokeTester(c) {
   }
 }
 
-class Count21 extends Module {
+class FSMCount21 extends Module {
   val io = IO(new Bundle {
     val start = Input(Bool())
     val count = Output(UInt(5.W))
@@ -115,13 +115,13 @@ class Count21 extends Module {
   })
 }
 
-class FSMUnitTest_Count21(c: Count21) extends PeekPokeTester(c) {
+class FSMUnitTest_Count21(c: FSMCount21) extends PeekPokeTester(c) {
   private val N = 50
   private val count = c
 
   //  println(s"Start from state: " + peek(seq.io.state).toString())
   poke(count.io.start, false)
-  for (i <- 0 to 25)
+  for (i <- 0 until N)
   {
     if (i == 3)
       poke(count.io.start, true)
@@ -140,7 +140,7 @@ class FSMUnitTest_Count21(c: Count21) extends PeekPokeTester(c) {
   }
 }
 
-class ClkDiv2 extends Module {
+class FSMClkDiv2 extends Module {
   val io = IO(new Bundle {
     val clk_o = Output(Bool())
     val state = Output(UInt())
@@ -165,7 +165,7 @@ class ClkDiv2 extends Module {
   io.state := fsm.current_state
 }
 
-class FSMUnitTest_ClkDiv2(c: ClkDiv2) extends PeekPokeTester(c) {
+class FSMUnitTest_ClkDiv2(c: FSMClkDiv2) extends PeekPokeTester(c) {
   private val N = 5000
   private val d = c
 
@@ -182,13 +182,13 @@ class FSMUnitTest_ClkDiv2(c: ClkDiv2) extends PeekPokeTester(c) {
 
 object FSMTester extends App {
 
-  iotesters.Driver.execute(args, () => new Seq10010) {
+  iotesters.Driver.execute(args, () => new FSMSeq10010) {
     c => new FSMUnitTest_Seq10010(c)
   }
-  iotesters.Driver.execute(args, () => new Count21) {
+  iotesters.Driver.execute(args, () => new FSMCount21) {
     c => new FSMUnitTest_Count21(c)
   }
-  iotesters.Driver.execute(args, () => new ClkDiv2) {
+  iotesters.Driver.execute(args, () => new FSMClkDiv2) {
     c => new FSMUnitTest_ClkDiv2(c)
   }
 }

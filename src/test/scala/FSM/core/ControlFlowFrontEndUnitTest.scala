@@ -7,7 +7,7 @@ import chisel3.iotesters
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 
 
-class PreTest extends Module {
+class CFPreTest extends Module {
   val io = IO(new Bundle{
     val in = Input(Bool())
     val output = Output(Bool())
@@ -92,7 +92,7 @@ class PreTest extends Module {
   io.state := fsm.current_state
 }
 
-class CFUnitTest_PreTest(c: PreTest) extends PeekPokeTester(c) {
+class CFUnitTest_PreTest(c: CFPreTest) extends PeekPokeTester(c) {
   private val N = 5000
   private val d = c
   private val send_v: Seq[Boolean] = (0 until N).map(x => (new scala.util.Random).nextBoolean())
@@ -102,15 +102,117 @@ class CFUnitTest_PreTest(c: PreTest) extends PeekPokeTester(c) {
     poke(d.io.in, send_v(i))
     step(1)
     val comb_o = peek(d.io.output)
-    println(comb_o.toString())
-    println(peek(d.io.state).toString())
     expect(d.io.output_reg, comb_o)
   }
 }
 
+class CFCount21 extends Module {
+  val io = IO(new Bundle {
+    val start = Input(Bool())
+    val count = Output(UInt(5.W))
+    val done = Output(Bool())
+  })
+
+  val cnt = Reg(UInt(5.W))
+
+  io.done := false.B
+  io.count := 0.U
+
+  val fsm = InstanciateFSM(new ControlFlowFrontEnd {
+    run {
+      start {}
+    }.until(io.start)
+
+    tik {
+      cnt := 0.U
+    }
+
+    run {
+      cnt := cnt + 1.U
+    }.until(cnt === 20.U)
+
+    tik {
+      io.done := true.B
+      io.count := cnt
+    }
+
+    end
+  })
+}
+
+class CFUnitTest_Count21(c: CFCount21) extends PeekPokeTester(c) {
+  private val N = 50
+  private val count = c
+
+  //  println(s"Start from state: " + peek(seq.io.state).toString())
+  poke(count.io.start, false)
+  for (i <- 0 until N)
+  {
+    if (i == 3)
+      poke(count.io.start, true)
+    else
+      poke(count.io.start, false)
+    if (i == 26) {
+      expect(count.io.done, true)
+      expect(count.io.count, 21)
+    } else {
+      expect(count.io.done, false)
+      expect(count.io.count, 0)
+    }
+    //    println("Send " + d.toString())
+    step(1)
+    //    println(s"Cycle ${id+1}, state: " + peek(seq.io.state).toString() + ". output: " + peek(seq.io.output).toString())
+  }
+}
+
+class CFClkDiv2 extends Module {
+  val io = IO(new Bundle {
+    val clk_o = Output(Bool())
+    val state = Output(UInt())
+  })
+
+  io.clk_o := false.B
+
+  val fsm = InstanciateFSM(new ControlFlowFrontEnd {
+    start {
+      io.clk_o := false.B
+    }
+
+    tik {
+      io.clk_o := true.B
+    }
+
+    end
+  })
+
+  io.state := fsm.current_state
+}
+
+class CFUnitTest_ClkDiv2(c: CFClkDiv2) extends PeekPokeTester(c) {
+  private val N = 5000
+  private val d = c
+
+  //  println(s"Start from state: " + peek(seq.io.state).toString())
+  for (i <- 0 until N)
+  {
+    expect(d.io.clk_o, (i%2) == 1)
+    //    println(peek(d.io.state).toString())
+    //    println("Send " + d.toString())
+    step(1)
+    //    println(s"Cycle ${id+1}, state: " + peek(seq.io.state).toString() + ". output: " + peek(seq.io.output).toString())
+  }
+}
+
+
 object CFTester extends App {
 
-  iotesters.Driver.execute(args, () => new PreTest) {
+  iotesters.Driver.execute(args, () => new CFPreTest) {
     c => new CFUnitTest_PreTest(c)
+  }
+  iotesters.Driver.execute(args, () => new CFCount21) {
+    c => new CFUnitTest_Count21(c)
+  }
+  iotesters.Driver.execute(args, () => new CFClkDiv2) {
+    c => new CFUnitTest_ClkDiv2(c)
   }
 }
