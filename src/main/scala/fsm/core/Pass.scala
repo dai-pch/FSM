@@ -136,17 +136,17 @@ object MergeSkipPass extends FSMSimplePass {
 
 object DeleteUnreachableEdgePass extends FSMSimplePass {
   override protected def run(des: FSMDescription): FSMDescription = {
-    val unreachable_edges = mutable.ArrayBuffer[EdgeType]()
+    val reachable_edges = mutable.ArrayBuffer[EdgeType]()
     for ((name, s) <- des.nodes) {
       val edges = des.edgesFrom(name)
-      val (should_drop, _) = edges.foldLeft((Array[EdgeType](), false))({
+      val (should_keep, _) = edges.foldLeft((Array[EdgeType](), true))({
+        case ((array, true), e@UnconditionalTransfer(_, _)) => (array :+ e, false)
         case ((array, true), e) => (array :+ e, true)
-        case ((array, _), e@UnconditionalTransfer(_, _)) => (array, true)
-        case ((array, _), e) => (array, false)
+        case (otherwise, _) => otherwise
       })
-      unreachable_edges ++= should_drop
+      reachable_edges ++= should_keep
     }
-    des --~ unreachable_edges
+    des.copy(edgeArray = reachable_edges.toArray)
   }
 }
 
