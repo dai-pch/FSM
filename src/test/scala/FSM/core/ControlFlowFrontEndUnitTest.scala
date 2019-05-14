@@ -111,6 +111,7 @@ class CFCount21 extends Module {
     val start = Input(Bool())
     val count = Output(UInt(5.W))
     val done = Output(Bool())
+    val state = Output(UInt())
   })
 
   val cnt = Reg(UInt(5.W))
@@ -120,48 +121,51 @@ class CFCount21 extends Module {
 
   val fsm = InstanciateFSM(new ControlFlowFrontEnd {
     run {
-      start {}
+      start {}.tag("start")
     }.until(io.start)
 
     tik {
       cnt := 0.U
-    }
+    }.tag("clear")
 
     run {
-      cnt := cnt + 1.U
+      tik {
+        cnt := cnt + 1.U
+      }.tag("cnt")
     }.until(cnt === 20.U)
 
     tik {
       io.done := true.B
       io.count := cnt
-    }
+    }.tag("complete")
 
     end
   })
+  io.state := fsm.current_state
 }
 
 class CFUnitTest_Count21(c: CFCount21) extends PeekPokeTester(c) {
   private val N = 50
-  private val count = c
+  private val d = c
 
-  //  println(s"Start from state: " + peek(seq.io.state).toString())
-  poke(count.io.start, false)
+//  println(s"Start from state: " + peek(d.io.state).toString())
+  poke(d.io.start, false)
   for (i <- 0 until N)
   {
     if (i == 3)
-      poke(count.io.start, true)
+      poke(d.io.start, true)
     else
-      poke(count.io.start, false)
+      poke(d.io.start, false)
     if (i == 26) {
-      expect(count.io.done, true)
-      expect(count.io.count, 21)
+      expect(d.io.done, true)
+      expect(d.io.count, 21)
     } else {
-      expect(count.io.done, false)
-      expect(count.io.count, 0)
+      expect(d.io.done, false)
+      expect(d.io.count, 0)
     }
-    //    println("Send " + d.toString())
+//    println("Send " + d.toString())
     step(1)
-    //    println(s"Cycle ${id+1}, state: " + peek(seq.io.state).toString() + ". output: " + peek(seq.io.output).toString())
+//    println(s"Cycle ${i+1}, state: " + peek(d.io.state).toString() + ". output: " + peek(d.io.count).toString())
   }
 }
 

@@ -185,12 +185,20 @@ object EncodePass extends FSMSimplePass {
   }
 }
 
-object CheckPass extends FSMSimplePass {
+object PreCheckPass extends FSMSimplePass {
   override def run(des: FSMDescription): FSMDescription = {
     assert(des.nodes.nonEmpty, "FSM is empty.")
+    assert(des.entryState != FSMDescriptionConfig._endStateName, "Must indicate entry state.")
+    des
+  }
+}
+
+object PostCheckPass extends FSMSimplePass {
+  override def run(des: FSMDescription): FSMDescription = {
+    assert(des.nodes.nonEmpty, "FSM is empty.")
+    assert(des.entryState != FSMDescriptionConfig._endStateName, "Must indicate entry state.")
     assert(des.encode.size == des.nodes.length, "FSM is not encoded correctly.")
     assert(des.state_width > 0)
-    assert(des.entryState != FSMDescriptionConfig._endStateName, "Must indicate entry state.")
     assert(!des.nodes.map(_._1).contains(FSMDescriptionConfig._endStateName), "Unhandled EndState.")
     des.nodes.foreach({
       case (n, s) => assert(s.isInstanceOf[TikState], s"Unhandled PseudoState $s: $n.")
@@ -223,10 +231,11 @@ object IdleFSMCompiler extends FSMCompiler {
     this
   }
   override val pass = FSMPassCompose(
+    PreCheckPass,
     IdlePass,
     PreprocessPass,
     OptimizePass,
     EncodePass,
-    CheckPass
+    PostCheckPass
   )
 }

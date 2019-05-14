@@ -39,6 +39,7 @@ class ControlFlowFrontEnd extends FSMBase {
   protected def run(contents: => Unit): RunContext = {
     val start_name = pushState(state = SkipState())
     contents
+    assert(cur_state != start_name, "Must add ticks in run-until loop.")
     val end_name = pushState(state = SkipState())
     new RunContext(start_name, end_name)
   }
@@ -47,6 +48,7 @@ class ControlFlowFrontEnd extends FSMBase {
     val end_name = pushState(state = SkipState(), cond = Some(!cond))
     cur_state = start_name
     contents
+    assert(cur_state != start_name, "Must add ticks in loop.")
     desc = desc +~ UnconditionalTransfer(cur_state, end_name)
     cur_state = end_name
   }
@@ -142,7 +144,7 @@ class ControlFlowFrontEnd extends FSMBase {
   }
   class RunContext(val start_name: String, val end_name: String) {
     def until(cond: ConditionType): Unit = {
-      desc = desc +~ ConditionalTransfer(end_name, start_name, cond)
+      desc = desc +~ ConditionalTransfer(end_name, start_name, !cond)
     }
   }
 }
