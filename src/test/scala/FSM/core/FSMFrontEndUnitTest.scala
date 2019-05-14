@@ -166,11 +166,11 @@ class ClkDiv2 extends Module {
 }
 
 class FSMUnitTest_ClkDiv2(c: ClkDiv2) extends PeekPokeTester(c) {
-  private val N = 50
+  private val N = 5000
   private val d = c
 
   //  println(s"Start from state: " + peek(seq.io.state).toString())
-  for (i <- 0 to 1000)
+  for (i <- 0 to N)
   {
     expect(d.io.clk_o, (i%2) == 1)
 //    println(peek(d.io.state).toString())
