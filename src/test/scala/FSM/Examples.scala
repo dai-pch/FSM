@@ -14,38 +14,38 @@ class CFExample extends Module {
       io.output := false.B
     }
 
-    tik {
+    tick {
       io.output := true.B
     }.tag("tag1")
 
     run {
-      tik {
+      tick {
         io.output := false.B
       }
 
-      tik {
+      tick {
         io.output := true.B
       }
     }.until(io.in)
 
     loop(!io.in) {
-      tik {
+      tick {
         io.output := false.B
       }
     }
 
     repeat(3) {
-      tik {
+      tick {
         io.output := true.B
       }
     }
 
     branch(io.in) {
-      tik {
+      tick {
 
       }
     }.or_branch(!io.in) {
-      tik {
+      tick {
 
       }
     }.or {

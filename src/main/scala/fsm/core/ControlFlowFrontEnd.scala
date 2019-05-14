@@ -17,12 +17,12 @@ class ControlFlowFrontEnd extends FSMBase {
   // for state record
   var cur_state: String = FSMDescriptionConfig._endStateName
   // for FSM construction
-  protected def tik(act: => Unit): StateContext = {
+  protected def tick(act: => Unit): StateContext = {
     val state_name = pushState()
     StateContext(state_name).act(act)
   }
   protected def start(act: => Unit): StateContext = {
-    val ctxt = tik(act)
+    val ctxt = tick(act)
     desc = desc.setEntry(cur_state)
     ctxt.copy(is_start = true)
   }

@@ -26,20 +26,20 @@ class CFPreTest extends Module {
       out_reg := false.B
     }.tag("tag2")
 
-    tik {
+    tick {
       io.output := true.B
     }.actPre {
       out_reg := true.B
     }.tag("tag1")
 
     run {
-      tik {
+      tick {
         io.output := false.B
       }.actPre {
         out_reg := false.B
       }.tag("tag3")
 
-      tik {
+      tick {
         io.output := true.B
       }.actPre {
         out_reg := true.B
@@ -47,7 +47,7 @@ class CFPreTest extends Module {
     }.until(io.in)
 
     loop(!io.in) {
-      tik {
+      tick {
         io.output := false.B
       }.actPre {
         out_reg := false.B
@@ -55,7 +55,7 @@ class CFPreTest extends Module {
     }
 
     repeat(0) {
-      tik {
+      tick {
         io.output := true.B
       }.actPre {
         out_reg := true.B
@@ -63,13 +63,13 @@ class CFPreTest extends Module {
     }
 
     branch(io.in) {
-      tik {
+      tick {
         io.output := true.B
       }.actPre {
         out_reg := true.B
       }.tag("br_1")
     }.or_branch(!io.in) {
-      tik {
+      tick {
         io.output := false.B
       }.actPre {
         out_reg := false.B
@@ -124,17 +124,17 @@ class CFCount21 extends Module {
       start {}.tag("start")
     }.until(io.start)
 
-    tik {
+    tick {
       cnt := 0.U
     }.tag("clear")
 
     run {
-      tik {
+      tick {
         cnt := cnt + 1.U
       }.tag("cnt")
     }.until(cnt === 20.U)
 
-    tik {
+    tick {
       io.done := true.B
       io.count := cnt
     }.tag("complete")
@@ -182,7 +182,7 @@ class CFClkDiv2 extends Module {
       io.clk_o := false.B
     }
 
-    tik {
+    tick {
       io.clk_o := true.B
     }
 
