@@ -16,6 +16,11 @@ class ControlFlowFrontEnd extends FSMBase {
   desc = desc + ("_StartState", SkipState())
   // for state record
   var cur_state: String = FSMDescriptionConfig._endStateName
+
+  //
+  def equals(that: ControlFlowFrontEnd): Boolean = {
+    super.equals(that) && cur_state == that.cur_state
+  }
   // for FSM construction
   protected def tick(act: => Unit): StateContext = {
     val state_name = pushState()
@@ -56,27 +61,28 @@ class ControlFlowFrontEnd extends FSMBase {
     for (_ <- 0 to times)
       contents
   }
-  private def repeat(times: UInt)(contents: => Unit): Unit = {
-    val start_name = pushState(state = SkipState())
-    val end_name = insertState(state = SkipState())
-    desc = desc +~ ConditionalTransfer(start_name, end_name, times === 0.U)
-    cur_state = start_name
-    contents
-    if (!desc.findState(cur_state).get.isInstanceOf[GeneralState]) {
-      warn("Last state of repeat is not TikState, a GeneralState is added.")
-      pushState()
-    }
-    desc = desc.procNode(cur_state, x=> x.asInstanceOf[GeneralState].addAct(LastAction(() => {
-      when(counter === times - 1.U) {counter := counter + 1.U} .otherwise {counter := 0.U}
-    })))
-    desc = desc +~ ConditionalTransfer(end_name, start_name, !(counter === times - 1.U))
-    cur_state = end_name
-  }
+//  private def repeat(times: UInt)(contents: => Unit): Unit = {
+//    val start_name = pushState(state = SkipState())
+//    val end_name = insertState(state = SkipState())
+//    desc = desc +~ ConditionalTransfer(start_name, end_name, times === 0.U)
+//    cur_state = start_name
+//    contents
+//    if (!desc.findState(cur_state).get.isInstanceOf[GeneralState]) {
+//      warn("Last state of repeat is not TikState, a GeneralState is added.")
+//      pushState()
+//    }
+//    desc = desc.procNode(cur_state, x=> x.asInstanceOf[GeneralState].addAct(LastAction(() => {
+//      when(counter === times - 1.U) {counter := counter + 1.U} .otherwise {counter := 0.U}
+//    })))
+//    desc = desc +~ ConditionalTransfer(end_name, start_name, !(counter === times - 1.U))
+//    cur_state = end_name
+//  }
   protected def goto(dest: String): Unit = {
     desc = desc +~ UnconditionalTransfer(cur_state, dest)
   }
   protected def end: Unit = {
     desc = desc +~ UnconditionalTransfer(cur_state, FSMDescriptionConfig._endStateName)
+    cur_state = null
   }
   // help function
   private def insertState(state_name: String = gen_name(),
@@ -100,6 +106,12 @@ class ControlFlowFrontEnd extends FSMBase {
   }
   protected def gen_name(): String = {
     "_" + ControlFlowFrontEnd.get_cnt.toString
+  }
+
+  override def postProc(): Unit = {
+    if (cur_state != null) {
+      end
+    }
   }
 
   //

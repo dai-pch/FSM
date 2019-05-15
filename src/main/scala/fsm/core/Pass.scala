@@ -2,6 +2,8 @@ package fsm.core
 
 import chisel3._
 import chisel3.util.log2Ceil
+import fsm.core.FSMDescriptionConfig.ActType
+
 import scala.collection.mutable
 
 abstract class FSMPass {
@@ -12,8 +14,12 @@ abstract class FSMPass {
   type ConditionType = FSMDescriptionConfig.ConditionType
   //
   var debug: Boolean = false
-  protected def run(des: FSMDescription): FSMDescription
-  def runInternal(des: FSMDescription): FSMDescription
+  protected def run(des: FSMDescription): FSMDescription = des
+  protected def run(fsm: FSMBase): FSMBase = {
+    fsm.desc = run(fsm.desc)
+    fsm
+  }
+  def runInternal(fsm: FSMBase): FSMBase
 }
 
 abstract class FSMSimplePass extends FSMPass {
@@ -22,26 +28,26 @@ abstract class FSMSimplePass extends FSMPass {
     this
   }
 
-  final override def runInternal(des: FSMDescription): FSMDescription = {
+  final override def runInternal(fsm: FSMBase): FSMBase = {
     if (debug) {
       println(s"Before pass ${this.getClass.getName}.")
-      println(des.toString())
+      println(fsm.desc.toString())
     }
-    val desc = run(des)
+    val new_fsm = run(fsm)
     if (debug) {
       println(s"After pass ${this.getClass.getName}.")
-      println(desc.toString())
+      println(new_fsm.desc.toString())
     }
-    desc
+    new_fsm
   }
 }
 
 abstract class FSMIteratePass extends FSMPass {
   val maxRun = 5000
-  final override def runInternal(des: FSMDescription): FSMDescription = {
+  final override def runInternal(fsm: FSMBase): FSMBase = {
     var count = 0
     var old_des: FSMDescription = null
-    var new_des = des
+    var new_des = fsm.desc
     do {
       old_des = new_des
       new_des = run(old_des)
@@ -49,14 +55,20 @@ abstract class FSMIteratePass extends FSMPass {
       if (count > maxRun)
         throw new FSMCompileNoStopping
     } while (old_des != new_des)
-    new_des
+    fsm.desc = new_des
+    fsm
+  }
+
+  final override def run(fsm: FSMBase): FSMBase = {
+    assert(false)
+    fsm
   }
 }
 
 class FSMComposePass(val passList: Seq[FSMPass], debug_ : Boolean = false) extends FSMSimplePass {
   debug = debug_
-  def run(des: FSMDescription): FSMDescription = {
-    var fsm = des
+  final override def run(fsm_ : FSMBase): FSMBase = {
+    var fsm = fsm_
     for (pass <- passList) {
       pass.debug = debug
       fsm = pass.runInternal(fsm)
@@ -68,6 +80,13 @@ class FSMComposePass(val passList: Seq[FSMPass], debug_ : Boolean = false) exten
 object FSMPassCompose {
   def apply(passes: FSMPass*): FSMComposePass = new FSMComposePass(passes)
   def apply(debug: Boolean, passes: FSMPass*): FSMComposePass = new FSMComposePass(passes, debug)
+}
+
+object PostConstructPass extends FSMSimplePass {
+  override protected def run(fsm: FSMBase): FSMBase = {
+    fsm.postProc()
+    fsm
+  }
 }
 
 object AssignLastFlagPass extends FSMSimplePass {
@@ -186,10 +205,15 @@ object EncodePass extends FSMSimplePass {
 }
 
 object PreCheckPass extends FSMSimplePass {
-  override def run(des: FSMDescription): FSMDescription = {
+  override def run(fsm: FSMBase): FSMBase = {
+    val des = fsm.desc
     assert(des.nodes.nonEmpty, "FSM is empty.")
     assert(des.entryState != FSMDescriptionConfig._endStateName, "Must indicate entry state.")
-    des
+    fsm match {
+      case f: ControlFlowFrontEnd => assert(f.cur_state == null, "ControlFlow must ended with end method.")
+      case o => Unit
+    }
+    fsm
   }
 }
 
@@ -208,6 +232,7 @@ object PostCheckPass extends FSMSimplePass {
 }
 
 object PreprocessPass extends FSMComposePass(Seq(
+  PostConstructPass,
   AssignLastFlagPass,
   MergeSubFSMPass,
   MergeSkipPass
@@ -220,8 +245,8 @@ object OptimizePass extends FSMComposePass(Seq(
 
 abstract class FSMCompiler {
   val pass: FSMPass
-  def compile(des: FSMDescription): FSMDescription = {
-    pass.runInternal(des)
+  def compile(fsm: FSMBase): FSMBase = {
+    pass.runInternal(fsm)
   }
 }
 
