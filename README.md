@@ -94,5 +94,83 @@ Clock | State | Actions to be executed
 
 ## <span id="control-flow-mode">Control Flow Mode</span>
 
-Coming soon...
+### Example
+Here is an example for construct FSM using `ControlFlow` mode.
 
+```scala
+import fsm._
+import chisel3._
+
+class CFExample extends Module {
+  val io = IO(new Bundle{
+    val in = Input(Bool())
+    val output = Output(Bool())
+  })
+
+  io.output := false.B
+
+  val fsm = InstanciateFSM(new ControlFlow {
+    start {
+      io.output := false.B
+    }
+
+    tick {
+      io.output := true.B
+    }.tag("tag1")
+
+    run {
+      tick {
+        io.output := false.B
+      }
+
+      tick {
+        io.output := true.B
+      }
+    }.until(io.in)
+
+    loop(!io.in) {
+      tick {
+        io.output := false.B
+      }
+    }
+
+    repeat(3) {
+      tick {
+        io.output := true.B
+      }
+    }
+
+    branch(io.in) {
+      tick {}
+    }.or_branch(!io.in) {
+      tick {}
+    }.or {
+      goto("tag1")
+    }
+
+    subFSM(new FSM {
+      entryState("subStart")
+        .otherwise.transferToEnd
+    })
+
+    end
+  })
+}
+```
+In `ControlFlow` mode, each actions are blocked by `tick` method, which generate one state.
+All the `tick` will be executed in order.
+FSM also provides methods for loop and branch structures.
+
+### Loop
+FSM provides `loop`, `run-until` and `repeat` methods for constructing loop structure.
+
+`loop` works like `while` in C languages. It will run its contents whenever the condition signal is true.
+
+`run-until` works like `do-while` in C languages. It will run one or more times determined by the condition signal.
+
+`repeat` only copy the state multiple times.
+
+Each loop method must contains at least one tick structures.
+
+### Branch
+FSM provides `branch`, `or_branch` and `or` for branch structures. They are like `if`, `else-if` and `else` in C language.
