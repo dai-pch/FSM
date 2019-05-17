@@ -11,6 +11,7 @@ object FSMDescriptionConfig {
   type ConditionType = Bool
   // configs
   val _endStateName = "_EndState"
+  val _startStateName = "_StartState"
 }
 
 
@@ -258,6 +259,6 @@ case class FSMDescription(// Graph properties
   }
 
   override def toString: String = {
-    "Nodes: " + nodeMap.toString() + ", \nEdges: " + edgeArray.map(_.toString()).reduce(_+ ", " +_)
+    "Nodes: " + nodeMap.toString() + ", \nEdges: " + edgeArray.map(_.toString()).reduce(_+ ", " +_) + s"\nEntry: $entryState"
   }
 }

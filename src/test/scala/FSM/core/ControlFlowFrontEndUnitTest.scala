@@ -208,50 +208,55 @@ class CFUnitTest_ClkDiv2(c: CFClkDiv2) extends PeekPokeTester(c) {
 }
 
 
-class CFClkDiv2_3 extends Module {
+class CFClkDiv3_3 extends Module {
   val io = IO(new Bundle {
-    val clk_d_2 = Output(Bool())
-    val clk_d_3 = Output(Bool())
+    val clk_d_3_0 = Output(Bool())
+    val clk_d_3_1 = Output(Bool())
   })
 
-  io.clk_d_2 := false.B
-  io.clk_d_3 := false.B
+  io.clk_d_3_0 := false.B
+  io.clk_d_3_1 := false.B
+
+  var forks: ForkWrapper = null
+  val fork_fsm_0 = new ControlFlowFrontEnd {
+    start {
+      io.clk_d_3_0 := true.B
+    }
+    end
+  }
+  val fork_fsm_1 = new ControlFlowFrontEnd {
+    start {}
+    tick {
+      io.clk_d_3_1 := true.B
+    }
+    end
+  }
+//  println(s"fork 0: ${fork_fsm_0.desc}")
+//  println(s"fork 1: ${fork_fsm_1.desc}")
 
   val fsm = InstanciateFSM(new ControlFlowFrontEnd {
     start {}
-    val w = fork(
-      new ControlFlowFrontEnd {
-        start {}
-        tick {
-          io.clk_d_2 := true.B
-        }
-        end
-      },
-      new ControlFlowFrontEnd {
-        start {}
-        tick {}
-        tick {
-          io.clk_d_3 := true.B
-        }
-        end
-      }
-    )
-    join(w)
+    forks = fork(fork_fsm_0, fork_fsm_1)
+    join(forks)
     end
   })
 
-//  println(p"current_state: ${fsm.current_state}")
+//  println(fsm.desc)
+//  fsm.fork_fsms.foreach(x => println(x.desc))
+//  printf(p"current_state: ${fsm.current_state.toUInt}\n")
+//  printf(p"fork state: ${forks.FSMs(0).current_state.toUInt}, ${forks.FSMs(1).current_state.toUInt}\n")
+//  printf(p"fork start: ${forks.start_sig}, fork end: ${forks.complete_sig}\n")
 }
 
-class CFUnitTest_ClkDiv2_3(c: CFClkDiv2_3) extends PeekPokeTester(c) {
-  private val N = 5000
+class CFUnitTest_ClkDiv3_3(c: CFClkDiv3_3) extends PeekPokeTester(c) {
+  private val N = 1500
   private val d = c
 
   step(6)
   for (i <- 0 until N)
   {
-    expect(d.io.clk_d_2, (i%2) == 0)
-    expect(d.io.clk_d_3, (i%3) == 0)
+    expect(d.io.clk_d_3_0, (i%3) == 1)
+    expect(d.io.clk_d_3_1, (i%3) == 2)
     step(1)
   }
 }
@@ -266,7 +271,7 @@ object CFTester extends App {
   iotesters.Driver.execute(args, () => new CFClkDiv2) {
     c => new CFUnitTest_ClkDiv2(c)
   }
-  iotesters.Driver.execute(args, () => new CFClkDiv2_3) {
-    c => new CFUnitTest_ClkDiv2_3(c)
+  iotesters.Driver.execute(args, () => new CFClkDiv3_3) {
+    c => new CFUnitTest_ClkDiv3_3(c)
   }
 }

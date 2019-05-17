@@ -287,11 +287,13 @@ class ForkedPass(val start_sig: Bool, val complete_sig: Bool) extends FSMSimpleP
     val complete_act: () => Unit = () => { complete_sig := true.B }
     val uncomplete_act: () => Unit = () => { complete_sig := false.B }
     val idle_name = "_ForkIdle"
-    desc = desc + (idle_name, GeneralState().addAct(complete_act))
+    desc = desc.insertIfNotFoundG(idle_name, GeneralState().addAct(complete_act))
     desc = desc +~ ConditionalTransfer(idle_name, desc.entryState, start_sig)
-    desc = desc.setEntry(idle_name)
     desc = desc.replaceState(FSMDescriptionConfig._endStateName, SkipState())
-    desc = desc +~ UnconditionalTransfer(FSMDescriptionConfig._endStateName, desc.entryState).copy(actions = Array(complete_act))
+    desc = desc +~ ConditionalTransfer(FSMDescriptionConfig._endStateName, desc.entryState,
+      start_sig, Array(complete_act))
+    desc = desc +~ UnconditionalTransfer(FSMDescriptionConfig._endStateName, idle_name, Array(complete_act))
+    desc = desc.setEntry(idle_name)
     fsm.desc = desc
     fsm.default_actions = fsm.default_actions :+ uncomplete_act
     fsm

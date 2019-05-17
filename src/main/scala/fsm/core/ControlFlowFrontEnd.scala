@@ -13,9 +13,9 @@ object ControlFlowFrontEnd {
 }
 
 class ControlFlowFrontEnd extends FSMBase {
-  desc = desc + ("_StartState", SkipState())
+  desc = desc + (FSMDescriptionConfig._startStateName, SkipState())
   // for state record
-  var cur_state: String = FSMDescriptionConfig._endStateName
+  var cur_state: String = FSMDescriptionConfig._startStateName
 
   //
   def equals(that: ControlFlowFrontEnd): Boolean = {
