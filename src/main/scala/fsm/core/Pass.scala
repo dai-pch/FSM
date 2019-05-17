@@ -94,10 +94,10 @@ object AssignLastFlagPass extends FSMSimplePass {
     val desc = description_
     desc.nodes.foreach({
       case (name, GeneralState(_, last)) => last := desc.edgesFrom(name).foldRight(false.B)({
-        case (ConditionalTransfer(_, des, cond), r) if des != name => cond || r
-        case (UnconditionalTransfer(_, des), _) if des != name => true.B
-        case (ConditionalTransfer(_, des, cond), r) if des == name => !cond && r
-        case (UnconditionalTransfer(_, des), _) if des == name => false.B
+        case (ConditionalTransfer(_, des, cond, _), r) if des != name => cond || r
+        case (UnconditionalTransfer(_, des, _), _) if des != name => true.B
+        case (ConditionalTransfer(_, des, cond, _), r) if des == name => !cond && r
+        case (UnconditionalTransfer(_, des, _), _) if des == name => false.B
       })
       case (_, SubFSMState(fsm)) => fsm.desc = run(fsm.desc)
       case others => Unit
@@ -106,26 +106,27 @@ object AssignLastFlagPass extends FSMSimplePass {
   }
 }
 
-object MergeSubFSMPass extends FSMSimplePass {
+object MergeSubFSMPass extends FSMIteratePass {
   override protected def run(description_ : FSMDescription): FSMDescription = {
     var desc = description_
     val subs = desc.statesOfType(SubFSMState(null))
     for ((name, sub_state) <- subs) {
       var sub_desc = sub_state.fsm.desc
-      val addPrefix = name + "_" + _
+      val addPrefix = "_" + name + "_" + _
       sub_desc = sub_desc.replaceState(FSMDescriptionConfig._endStateName, SkipState())
       sub_desc = sub_desc.renameNodes(_=>true, addPrefix)
       desc = desc ++ sub_desc.nodes
       desc = desc ++~ sub_desc.edges
       desc = desc
         .mapEdge(_.destination == name, {
-          case e@ConditionalTransfer(_, _, _) => e.copy(destination = addPrefix(sub_desc.entryState) )
-          case e@UnconditionalTransfer(_, _) => e.copy(destination = addPrefix(sub_desc.entryState) )
+          case e: ConditionalTransfer => e.copy(destination = addPrefix(sub_desc.entryState) )
+          case e: UnconditionalTransfer => e.copy(destination = addPrefix(sub_desc.entryState) )
         })
         .mapEdge(_.source == name, {
-          case e@ConditionalTransfer(_, _, _) => e.copy(source = addPrefix(FSMDescriptionConfig._endStateName) )
-          case e@UnconditionalTransfer(_, _) => e.copy(source = addPrefix(FSMDescriptionConfig._endStateName) )
+          case e: ConditionalTransfer => e.copy(source = addPrefix(FSMDescriptionConfig._endStateName) )
+          case e: UnconditionalTransfer => e.copy(source = addPrefix(FSMDescriptionConfig._endStateName) )
         })
+      desc = desc - name
     }
     desc
   }
@@ -138,13 +139,13 @@ object MergeSkipPass extends FSMSimplePass {
     for (name <- skipStates) {
       val out_edges = new_desc.edgesFrom(name)
       new_desc = new_desc.mapEdgeSeq(name == _.destination, {
-        case ConditionalTransfer(src, _, cond) => out_edges.map({
-          case ConditionalTransfer(_, dest, cond2) => ConditionalTransfer(src, dest, cond && cond2)
-          case UnconditionalTransfer(_, dest) => ConditionalTransfer(src, dest, cond)
+        case ConditionalTransfer(src, _, cond, act1) => out_edges.map({
+          case ConditionalTransfer(_, dest, cond2, act2) => ConditionalTransfer(src, dest, cond && cond2, act1 ++ act2)
+          case UnconditionalTransfer(_, dest, act2) => ConditionalTransfer(src, dest, cond, act1 ++ act2)
         })
-        case UnconditionalTransfer(src, _) => out_edges.map({
-          case ConditionalTransfer(_, dest, cond2) => ConditionalTransfer(src, dest, cond2)
-          case UnconditionalTransfer(_, dest) => UnconditionalTransfer(src, dest)
+        case UnconditionalTransfer(src, _, act1) => out_edges.map({
+          case ConditionalTransfer(_, dest, cond2, act2) => ConditionalTransfer(src, dest, cond2, act1 ++ act2)
+          case UnconditionalTransfer(_, dest, act2) => UnconditionalTransfer(src, dest, act1 ++ act2)
         })
       })
       new_desc = new_desc --~ out_edges
@@ -159,7 +160,7 @@ object DeleteUnreachableEdgePass extends FSMSimplePass {
     for ((name, s) <- des.nodes) {
       val edges = des.edgesFrom(name)
       val (should_keep, _) = edges.foldLeft((Array[EdgeType](), true))({
-        case ((array, true), e@UnconditionalTransfer(_, _)) => (array :+ e, false)
+        case ((array, true), e: UnconditionalTransfer) => (array :+ e, false)
         case ((array, true), e) => (array :+ e, true)
         case (otherwise, _) => otherwise
       })
@@ -233,12 +234,13 @@ object PostCheckPass extends FSMSimplePass {
 
 object PreprocessPass extends FSMComposePass(Seq(
   PostConstructPass,
+  PreCheckPass,
   AssignLastFlagPass,
-  MergeSubFSMPass,
-  MergeSkipPass
+  MergeSubFSMPass
 ))
 
 object OptimizePass extends FSMComposePass(Seq(
+  MergeSkipPass,
   DeleteUnreachableEdgePass,
   DeleteUnreachableStatePass
 ))
@@ -248,17 +250,16 @@ abstract class FSMCompiler {
   def compile(fsm: FSMBase): FSMBase = {
     pass.runInternal(fsm)
   }
-}
-
-object IdleFSMCompiler extends FSMCompiler {
   def apply(debug : Boolean = false): this.type = {
     pass.debug = debug
     this
   }
+}
+
+object IdleFSMCompiler extends FSMCompiler {
   override val pass = FSMPassCompose(
-    PreCheckPass,
-    IdlePass,
     PreprocessPass,
+    IdlePass,
     OptimizePass,
     EncodePass,
     PostCheckPass

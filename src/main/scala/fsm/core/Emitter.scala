@@ -1,6 +1,7 @@
 package fsm.core
 
 import chisel3._
+import chisel3.util.{switch, is}
 
 object Emitter {
   def apply(fsm: FSMBase): Unit = {
@@ -12,46 +13,65 @@ object Emitter {
     // state transfer
     current_state := next_state
 
-    // next state logic
     next_state := current_state
-    for ((node, _) <- desc.nodes) {
-      when (current_state === desc.encode(node).U) {
-        for (e <- desc.edgesFrom(node).reverse) {
+    for ((state_name, state) <- desc.nodes.map(x => (x._1, x._2.asInstanceOf[GeneralState]))) {
+      when(current_state === desc.encode(state_name).U) {
+        // output logic
+        // normal act
+        for (act <- state.actionList.filter(_.isInstanceOf[NormalAction]).reverse.map(_.act)) {
+          act()
+        }
+        // last act
+        when(state.last_flag) {
+          for (act <- state.actionList.filter(_.isInstanceOf[LastAction]).reverse.map(_.act)) {
+            act()
+          }
+        }
+        // next state logic and edge actions logic
+        var when_ctx: WhenContext = null
+        for (e <- desc.edgesFrom(state_name)) {
           e match {
-            case ConditionalTransfer(src, dest, cond) =>
-              assert(src == node)
-              when (cond) {
-                next_state := desc.encode(dest).U
+            case ConditionalTransfer(src, dest, cond, acts) =>
+              assert(src == state_name)
+              if (when_ctx == null) {
+                when_ctx = when(cond) {
+                  for (e_act <- acts) {
+                    e_act()
+                  }
+                  next_state := desc.encode(dest).U
+                }
+              } else {
+                when_ctx = when_ctx.elsewhen(cond) {
+                  for (e_act <- acts) {
+                    e_act()
+                  }
+                  next_state := desc.encode(dest).U
+                }
               }
-            case UnconditionalTransfer(src, dest) =>
-              assert(src == node)
-              next_state := desc.encode(dest).U
+            case UnconditionalTransfer(src, dest, acts) =>
+              assert(src == state_name)
+              if (when_ctx == null) {
+                for (e_act <- acts) {
+                  e_act()
+                }
+                next_state := desc.encode(dest).U
+              } else {
+                when_ctx.otherwise {
+                  for (e_act <- acts) {
+                    e_act()
+                  }
+                  next_state := desc.encode(dest).U
+                }
+              }
           }
         }
       }
     }
 
-    // output logic
-    //normal act
-    for ((name, state) <- desc.nodes) {
-      for (act <- state.asInstanceOf[GeneralState].actionList.reverse.filter(_.isInstanceOf[NormalAction]).map(_.act)) {
-        when (current_state === desc.encode(name).U) {
-          act()
-        }
-      }
-    }
-    // last act
-    for ((name, state) <- desc.nodes) {
-      for (act <- state.asInstanceOf[GeneralState].actionList.reverse.filter(_.isInstanceOf[LastAction]).map(_.act)) {
-        when ((current_state === desc.encode(name).U) && state.asInstanceOf[GeneralState].last_flag) {
-          act()
-        }
-      }
-    }
     // pre act
     for ((name, state) <- desc.nodes) {
-      for (act <- state.asInstanceOf[GeneralState].actionList.reverse.filter(_.isInstanceOf[PreAction]).map(_.act)) {
-        when (next_state === desc.encode(name).U) {
+      when(next_state === desc.encode(name).U) {
+        for (act <- state.asInstanceOf[GeneralState].actionList.reverse.filter(_.isInstanceOf[PreAction]).map(_.act)) {
           act()
         }
       }

@@ -1,6 +1,7 @@
 package fsm.core
 
 import chisel3._
+import fsm.core.FSMDescriptionConfig.ActType
 
 
 object FSMDescriptionConfig {
@@ -13,6 +14,7 @@ object FSMDescriptionConfig {
   val _endStateName = "_EndState"
 }
 
+
 sealed abstract class BaseAction {
   def act: () => Unit
 }
@@ -20,6 +22,7 @@ sealed abstract class BaseAction {
 sealed case class NormalAction(act: FSMDescriptionConfig.ActType) extends BaseAction {}
 sealed case class PreAction(act: FSMDescriptionConfig.ActType) extends BaseAction {}
 sealed case class LastAction(act: FSMDescriptionConfig.ActType) extends BaseAction {}
+
 
 sealed abstract class BaseState {}
 
@@ -45,17 +48,26 @@ case object EndState extends PseudoState {}
 sealed case class SkipState() extends PseudoState {}
 sealed case class PlaceHolderState() extends PseudoState {}
 
-sealed abstract class BaseTransfer(val source: String, val destination: String) {}
+
+sealed abstract class BaseTransfer {
+  val source: String
+  val destination: String
+  val actions: BaseTransfer.ActionsType
+}
 object BaseTransfer {
-  def unapply(arg: BaseTransfer): Option[(String, String)] = Some(arg.source, arg.destination)
+  type ActionsType = Array[FSMDescriptionConfig.ActType]
+  def unapply(arg: BaseTransfer): Option[(String, String, ActionsType)] =
+    Some(arg.source, arg.destination, arg.actions)
 }
 sealed case class ConditionalTransfer(override val source: String,
                                       override val destination: String,
-                                      cond: FSMDescriptionConfig.ConditionType
-                                     ) extends BaseTransfer(source, destination) {}
+                                      cond: FSMDescriptionConfig.ConditionType,
+                                      override val actions: BaseTransfer.ActionsType = Array()
+                                     ) extends BaseTransfer {}
 sealed case class UnconditionalTransfer(override val source: String,
-                                        override val destination: String
-                                       ) extends BaseTransfer(source, destination) {}
+                                        override val destination: String,
+                                        override val actions: BaseTransfer.ActionsType = Array()
+                                       ) extends BaseTransfer {}
 
 
 object FSMDescription {
@@ -86,11 +98,11 @@ case class FSMDescription(// Graph properties
   type ActionType = FSMDescriptionConfig.ActionType
   type ConditionType = FSMDescriptionConfig.ConditionType
   // class methods
-  def conditionalTransferTo(src: String, dest: String, cond: ConditionType): FSMDescription = {
-    copy(edgeArray = edgeArray :+ ConditionalTransfer(src, dest, cond))
+  def conditionalTransferTo(src: String, dest: String, cond: ConditionType, acts: BaseTransfer.ActionsType = Array()): FSMDescription = {
+    copy(edgeArray = edgeArray :+ ConditionalTransfer(src, dest, cond, acts))
   }
-  def unconditionalTransferTo(src: String, dest: String): FSMDescription = {
-    copy(edgeArray = edgeArray :+ UnconditionalTransfer(src, dest))
+  def unconditionalTransferTo(src: String, dest: String, acts: BaseTransfer.ActionsType = Array()): FSMDescription = {
+    copy(edgeArray = edgeArray :+ UnconditionalTransfer(src, dest, acts))
   }
   def replaceState(ori: String, state: BaseState): FSMDescription = {
     assert(nodeMap contains ori)
@@ -217,13 +229,13 @@ case class FSMDescription(// Graph properties
     this.copy(
       nodeMap = nodeMap - origin + (name -> nodeMap(origin) ),
       edgeArray = edgeArray.map({
-        case e@ConditionalTransfer(src, _, _) if src == origin => e.copy(source = name)
-        case e@UnconditionalTransfer(src, _) if src == origin => e.copy(source = name)
+        case e@ConditionalTransfer(src, _, _, _) if src == origin => e.copy(source = name)
+        case e@UnconditionalTransfer(src, _, _) if src == origin => e.copy(source = name)
         case e => e
       })
       .map({
-        case e@ConditionalTransfer(_, dest, _) if dest == origin => e.copy(destination = name)
-        case e@UnconditionalTransfer(_, dest) if dest == origin => e.copy(destination = name)
+        case e@ConditionalTransfer(_, dest, _, _) if dest == origin => e.copy(destination = name)
+        case e@UnconditionalTransfer(_, dest, _) if dest == origin => e.copy(destination = name)
         case e => e
       })
     )
