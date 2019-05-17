@@ -3,13 +3,6 @@ package fsm.core
 import chisel3._
 //import scala.collection.mutable.Stack
 
-
-class ForkWrapper(private val state: ForkedFSMState) {
-  def FSMs: Array[FSMBase] = state.fsms
-  val start_sig: Bool = state.start_sig
-  val complete_sig: Bool = state.complete_sig
-}
-
 class FSMFrontEnd extends FSMBase {
   // for FSM construction
   protected def state(stateName: String): StateContext = {
@@ -82,8 +75,5 @@ class FSMFrontEnd extends FSMBase {
   }
   class ForkContext(state_name: String, val state: ForkedFSMState) extends StateContext(state_name) {
     implicit def toForkWrapper: ForkWrapper = new ForkWrapper(state)
-    def FSMs: Array[FSMBase] = state.fsms
-    val start_sig: Bool = state.start_sig
-    val complete_sig: Bool = state.complete_sig
   }
 }

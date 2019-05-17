@@ -61,16 +61,16 @@ class ControlFlowFrontEnd extends FSMBase {
     for (_ <- 0 to times)
       contents
   }
-  protected def fork(fsms: FSMBase*): String = {
+  protected def fork(fsms: FSMBase*): ForkWrapper = {
     val name = super.forkFSM(gen_name())(fsms)
     desc = desc +~ UnconditionalTransfer(cur_state, name)
     cur_state = name
-    name
+    new ForkWrapper(desc.findState(name).get.asInstanceOf[ForkedFSMState])
   }
-  protected def join(fork_name: String): Unit = {
+  protected def join(wrapper: ForkWrapper): Unit = {
     val join_name = pushState()
     val join_complete = pushState(state = SkipState(),
-      cond = Some(desc.findState(fork_name).asInstanceOf[ForkedFSMState].complete_sig))
+      cond = Some(wrapper.complete_sig))
   }
 //  private def repeat(times: UInt)(contents: => Unit): Unit = {
 //    val start_name = pushState(state = SkipState())

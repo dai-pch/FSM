@@ -19,6 +19,12 @@ object FSMStateWrapper {
   implicit def toUInt(wrapper: FSMStateWrapper): UInt = wrapper.toUInt
 }
 
+class ForkWrapper(private val state: ForkedFSMState) {
+  def FSMs: Array[FSMBase] = state.fsms
+  val start_sig: Bool = state.start_sig
+  val complete_sig: Bool = state.complete_sig
+}
+
 class FSMBase(
                // variable
                var desc: FSMDescription = FSMDescription(),

@@ -208,8 +208,55 @@ class CFUnitTest_ClkDiv2(c: CFClkDiv2) extends PeekPokeTester(c) {
 }
 
 
-object CFTester extends App {
+class CFClkDiv2_3 extends Module {
+  val io = IO(new Bundle {
+    val clk_d_2 = Output(Bool())
+    val clk_d_3 = Output(Bool())
+  })
 
+  io.clk_d_2 := false.B
+  io.clk_d_3 := false.B
+
+  val fsm = InstanciateFSM(new ControlFlowFrontEnd {
+    start {}
+    val w = fork(
+      new ControlFlowFrontEnd {
+        start {}
+        tick {
+          io.clk_d_2 := true.B
+        }
+        end
+      },
+      new ControlFlowFrontEnd {
+        start {}
+        tick {}
+        tick {
+          io.clk_d_3 := true.B
+        }
+        end
+      }
+    )
+    join(w)
+    end
+  })
+
+//  println(p"current_state: ${fsm.current_state}")
+}
+
+class CFUnitTest_ClkDiv2_3(c: CFClkDiv2_3) extends PeekPokeTester(c) {
+  private val N = 5000
+  private val d = c
+
+  step(6)
+  for (i <- 0 until N)
+  {
+    expect(d.io.clk_d_2, (i%2) == 0)
+    expect(d.io.clk_d_3, (i%3) == 0)
+    step(1)
+  }
+}
+
+object CFTester extends App {
   iotesters.Driver.execute(args, () => new CFPreTest) {
     c => new CFUnitTest_PreTest(c)
   }
@@ -218,5 +265,8 @@ object CFTester extends App {
   }
   iotesters.Driver.execute(args, () => new CFClkDiv2) {
     c => new CFUnitTest_ClkDiv2(c)
+  }
+  iotesters.Driver.execute(args, () => new CFClkDiv2_3) {
+    c => new CFUnitTest_ClkDiv2_3(c)
   }
 }
