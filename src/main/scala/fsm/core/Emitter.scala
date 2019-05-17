@@ -10,6 +10,14 @@ object Emitter {
     val current_state = RegInit(desc.encode(desc.entryState).U(desc.state_width.W))
     val next_state = Wire(UInt(desc.state_width.W))
 
+    // default actions
+    for (act <- fsm.default_actions) {
+      act()
+    }
+
+    // fork fsms
+    fsm.fork_fsms.foreach(Emitter(_))
+
     // state transfer
     current_state := next_state
 

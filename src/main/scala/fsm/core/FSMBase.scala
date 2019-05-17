@@ -22,6 +22,8 @@ object FSMStateWrapper {
 class FSMBase(
                // variable
                var desc: FSMDescription = FSMDescription(),
+               var default_actions: Array[FSMDescriptionConfig.ActType] = Array(),
+               var fork_fsms: Array[FSMBase] = Array(),
 //               lazy val counter: UInt = Reg(UInt()),
                val current_state: FSMStateWrapper = new FSMStateWrapper,
                val next_state: FSMStateWrapper = new FSMStateWrapper,
@@ -36,6 +38,11 @@ class FSMBase(
   protected def subFSM(stateName: String, fsm: FSMBase): String = {
     val state = SubFSMState(fsm)
     desc = desc.insertIfNotFoundG(stateName, state)
+    stateName
+  }
+  protected def forkFSM(stateName: String)(fsms: Seq[FSMBase]): String = {
+    val fork_s = ForkedFSMState(fsms.toArray)
+    desc = desc + (stateName, fork_s)
     stateName
   }
   // help functions

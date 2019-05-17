@@ -2,7 +2,6 @@ package fsm.core
 
 import chisel3._
 import chisel3.util.log2Ceil
-import fsm.core.FSMDescriptionConfig.ActType
 
 import scala.collection.mutable
 
@@ -132,6 +131,38 @@ object MergeSubFSMPass extends FSMIteratePass {
   }
 }
 
+object MergeForkedFSMPass extends FSMSimplePass {
+  override protected def run(fsm: FSMBase): FSMBase = {
+    var new_desc = fsm.desc
+    val forkedStates = new_desc.nodes.filter(_._2.isInstanceOf[ForkedFSMState])
+      .map(x => (x._1, x._2.asInstanceOf[ForkedFSMState]))
+    for ((name, state) <- forkedStates) {
+      val fork_fsms = state.fsms
+      val complete_sigs = Array.fill(fork_fsms.length)(Wire(Bool()))
+      val start_sig = Wire(Bool())
+      fsm.fork_fsms = fsm.fork_fsms ++ fork_fsms.zip(complete_sigs).map(x => new ForkedFSMCompiler(start_sig, x._2).compile(x._1))
+      val n_start_act: () => Unit = () => {start_sig := false.B}
+      fsm.default_actions = fsm.default_actions :+ n_start_act
+      state.complete_sig := complete_sigs.reduce(_&&_)
+      val fork_start_name = s"_${name}_" + "ForkStart"
+      val fork_end_name = s"_${name}_" + "ForkEnd"
+      new_desc = new_desc + (fork_start_name, SkipState()) + (fork_end_name, SkipState())
+      new_desc = new_desc +~ UnconditionalTransfer(fork_start_name, fork_end_name, Array(() => {start_sig := true.B}))
+      new_desc = new_desc
+        .mapEdge(_.destination == name, {
+          case e: ConditionalTransfer => e.copy(destination = fork_start_name )
+          case e: UnconditionalTransfer => e.copy(destination = fork_start_name )
+        })
+        .mapEdge(_.source == name, {
+          case e: ConditionalTransfer => e.copy(source = fork_end_name)
+          case e: UnconditionalTransfer => e.copy(source = fork_end_name)
+        })
+    }
+    fsm.desc = new_desc
+    fsm
+  }
+}
+
 object MergeSkipPass extends FSMSimplePass {
   override protected def run(desc: FSMDescription): FSMDescription = {
     var new_desc = desc
@@ -187,15 +218,6 @@ object DeleteUnreachableStatePass extends FSMSimplePass {
   }
 }
 
-object IdlePass extends FSMSimplePass {
-  override protected def run(des: FSMDescription): FSMDescription = {
-    var new_desc = des
-    new_desc = new_desc.replaceState(FSMDescriptionConfig._endStateName, SkipState())
-    new_desc = new_desc +~ UnconditionalTransfer(FSMDescriptionConfig._endStateName, des.entryState)
-    new_desc
-  }
-}
-
 object EncodePass extends FSMSimplePass {
   override protected def run(des: FSMDescription): FSMDescription = {
     val enc = des.nodes.map(_._1).zipWithIndex
@@ -236,7 +258,8 @@ object PreprocessPass extends FSMComposePass(Seq(
   PostConstructPass,
   PreCheckPass,
   AssignLastFlagPass,
-  MergeSubFSMPass
+  MergeSubFSMPass,
+  MergeForkedFSMPass
 ))
 
 object OptimizePass extends FSMComposePass(Seq(
@@ -244,6 +267,36 @@ object OptimizePass extends FSMComposePass(Seq(
   DeleteUnreachableEdgePass,
   DeleteUnreachableStatePass
 ))
+
+object IdlePass extends FSMSimplePass {
+  override protected def run(des: FSMDescription): FSMDescription = {
+    var new_desc = des
+    new_desc = new_desc.replaceState(FSMDescriptionConfig._endStateName, SkipState())
+    new_desc = new_desc +~ UnconditionalTransfer(FSMDescriptionConfig._endStateName, des.entryState)
+    new_desc
+  }
+}
+
+class ForkedPass(val start_sig: Bool, val complete_sig: Bool) extends FSMSimplePass {
+  override protected def run(fsm: FSMBase): FSMBase = {
+    var desc = fsm.desc
+    val complete_act: () => Unit = () => { complete_sig := true.B }
+    val uncomplete_act: () => Unit = () => { complete_sig := false.B }
+    val idle_name = "_ForkedIdle"
+    desc = desc + (idle_name, GeneralState().addAct(complete_act))
+    desc = desc +~ ConditionalTransfer(idle_name, desc.entryState, start_sig)
+    desc = desc.setEntry(idle_name)
+    desc = desc.replaceState(FSMDescriptionConfig._endStateName, SkipState())
+    desc = desc +~ UnconditionalTransfer(FSMDescriptionConfig._endStateName, desc.entryState).copy(actions = Array(complete_act))
+    fsm.desc = desc
+    fsm.default_actions = fsm.default_actions :+ uncomplete_act
+    fsm
+  }
+}
+
+object ForkedPass {
+  def apply(start_sig: Bool,complete_sig: Bool): ForkedPass = new ForkedPass(start_sig, complete_sig)
+}
 
 abstract class FSMCompiler {
   val pass: FSMPass
@@ -260,6 +313,16 @@ object IdleFSMCompiler extends FSMCompiler {
   override val pass = FSMPassCompose(
     PreprocessPass,
     IdlePass,
+    OptimizePass,
+    EncodePass,
+    PostCheckPass
+  )
+}
+
+class ForkedFSMCompiler(val start_sig: Bool, val complete_sig: Bool) extends FSMCompiler {
+  override val pass = FSMPassCompose(
+    PreprocessPass,
+    ForkedPass(start_sig, complete_sig),
     OptimizePass,
     EncodePass,
     PostCheckPass

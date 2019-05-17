@@ -25,6 +25,10 @@ class FSMFrontEnd extends FSMBase {
     super.subFSM(stateName, fsm)
     new StateContext(stateName)
   }
+  def forkFSM(stateName: String)(fsms: FSMBase*): StateContext = {
+    super.forkFSM(stateName)(fsms)
+    new StateContext(stateName)
+  }
   //
   class StateContext(val state_name: String) {
     def act(c: => Unit): this.type = {

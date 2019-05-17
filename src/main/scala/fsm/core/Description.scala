@@ -1,7 +1,6 @@
 package fsm.core
 
 import chisel3._
-import fsm.core.FSMDescriptionConfig.ActType
 
 
 object FSMDescriptionConfig {
@@ -47,6 +46,7 @@ sealed case class SubFSMState(fsm: FSMBase) extends TikState {}
 case object EndState extends PseudoState {}
 sealed case class SkipState() extends PseudoState {}
 sealed case class PlaceHolderState() extends PseudoState {}
+sealed case class ForkedFSMState(fsms: Array[FSMBase], complete_sig: Bool = Wire(Bool())) extends PseudoState {}
 
 
 sealed abstract class BaseTransfer {
