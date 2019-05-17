@@ -41,8 +41,8 @@ class FSMBase(
     stateName
   }
   protected def forkFSM(stateName: String)(fsms: Seq[FSMBase]): String = {
-    val fork_s = ForkedFSMState(fsms.toArray)
-    desc = desc + (stateName, fork_s)
+    val t: Array[FSMBase] = fsms.toArray
+    desc = desc.insertIfNotFoundG(stateName, ForkedFSMState(t))
     stateName
   }
   // help functions

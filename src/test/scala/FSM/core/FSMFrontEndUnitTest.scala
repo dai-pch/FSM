@@ -180,6 +180,71 @@ class FSMUnitTest_ClkDiv2(c: FSMClkDiv2) extends PeekPokeTester(c) {
   }
 }
 
+class FSMClkDiv2_3 extends Module {
+  val io = IO(new Bundle {
+    val clk_div_2 = Output(Bool())
+    val clk_div_3 = Output(Bool())
+  })
+
+  io.clk_div_2 := false.B
+  io.clk_div_3 := false.B
+
+  var forks: ForkWrapper = null
+
+  val fsm = InstanciateFSM(new FSMFrontEnd {
+    entryState("Idle")
+      .otherwise.transferTo("Fork")
+
+    forks = forkFSM("Fork")(new FSMFrontEnd {
+        entryState("Zero")
+          .otherwise.transferTo("One")
+
+        state("One")
+          .act {
+            io.clk_div_2 := true.B
+          }.otherwise.transferTo("Zero")
+      }, new FSMFrontEnd {
+        entryState("Zero")
+          .otherwise.transferTo("One")
+
+        state("One")
+          .otherwise.transferTo("Two")
+
+        state("Two")
+          .act {
+            io.clk_div_3 := true.B
+          }.otherwise.transferTo("Zero")
+    }).otherwise.transferToEnd.toForkWrapper
+
+  })
+
+//  val fork_fsms = forks.FSMs
+//  val fork_start = forks.start_sig
+//  val fork_end = forks.complete_sig
+//  fork_fsms.foreach(x => println(s"Fork fsm ${x.desc}"))
+//  printf(p"fork0: ${fork_fsms(0).current_state.toUInt}, fork1: ${fork_fsms(1).current_state.toUInt}.\n")
+//  printf(p"start: ${fork_start}, complete: ${fork_end}.\n")
+//  fork_start := true.B
+}
+
+class FSMUnitTest_ClkDiv2_3(c: FSMClkDiv2_3) extends PeekPokeTester(c) {
+  private val N = 5000
+  private val d = c
+
+  //  println(s"Start from state: " + peek(seq.io.state).toString())
+  step(6)
+  for (i <- 0 to N)
+  {
+    expect(d.io.clk_div_2, (i%2) == 0)
+    expect(d.io.clk_div_3, (i%3) == 0 )
+    //    println(peek(d.io.state).toString())
+    //    println("Send " + d.toString())
+    step(1)
+//    println(s"Cycle ${i+1}, " +
+//      s"output: ${peek(d.io.clk_div_2).toString()}, ${peek(d.io.clk_div_3).toString()}")
+  }
+}
+
 object FSMTester extends App {
 
   iotesters.Driver.execute(args, () => new FSMSeq10010) {
@@ -190,5 +255,8 @@ object FSMTester extends App {
   }
   iotesters.Driver.execute(args, () => new FSMClkDiv2) {
     c => new FSMUnitTest_ClkDiv2(c)
+  }
+  iotesters.Driver.execute(args, () => new FSMClkDiv2_3) {
+    c => new FSMUnitTest_ClkDiv2_3(c)
   }
 }

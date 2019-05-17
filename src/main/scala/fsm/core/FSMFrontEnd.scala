@@ -3,6 +3,13 @@ package fsm.core
 import chisel3._
 //import scala.collection.mutable.Stack
 
+
+class ForkWrapper(private val state: ForkedFSMState) {
+  def FSMs: Array[FSMBase] = state.fsms
+  val start_sig: Bool = state.start_sig
+  val complete_sig: Bool = state.complete_sig
+}
+
 class FSMFrontEnd extends FSMBase {
   // for FSM construction
   protected def state(stateName: String): StateContext = {
@@ -25,9 +32,15 @@ class FSMFrontEnd extends FSMBase {
     super.subFSM(stateName, fsm)
     new StateContext(stateName)
   }
-  def forkFSM(stateName: String)(fsms: FSMBase*): StateContext = {
+  def forkFSM(stateName: String)(fsms: FSMBase*): ForkContext = {
+    val fork_join_name = s"_Fork_${stateName}_Join"
     super.forkFSM(stateName)(fsms)
-    new StateContext(stateName)
+    state(stateName).otherwise.transferTo(fork_join_name)
+    val fork_state = desc.findState(stateName).get.asInstanceOf[ForkedFSMState]
+    state(fork_join_name).when(
+      !fork_state.complete_sig
+    ).transferTo(fork_join_name)
+    new ForkContext(fork_join_name, fork_state)
   }
   //
   class StateContext(val state_name: String) {
@@ -43,23 +56,22 @@ class FSMFrontEnd extends FSMBase {
       desc = desc.addLast(state_name, () => act)
       this
     }
-    def when(cond: ConditionType): TransferContext = {
+    def when(cond: ConditionType): TransferContext[this.type] = {
       new TransferContext(this, Some(cond))
     }
-    def otherwise: TransferContext = {
+    def otherwise: TransferContext[this.type] = {
       new TransferContext(this, None)
     }
-
-    class TransferContext(val parent: StateContext, val cond: Option[ConditionType]) {
+    class TransferContext[P <: StateContext](val parent: P, val cond: Option[ConditionType]) {
       private val state_name = parent.state_name
-      def transferTo(destName: String): StateContext = {
+      def transferTo(destName: String): parent.type = {
         cond match {
           case Some(c) => desc = desc +~ ConditionalTransfer(state_name, destName, c)
           case None    => desc = desc +~ UnconditionalTransfer(state_name, destName)
         }
         parent
       }
-      def transferToEnd: StateContext = {
+      def transferToEnd: parent.type = {
         cond match {
           case Some(c) => desc = desc +~ ConditionalTransfer(state_name, FSMDescriptionConfig._endStateName, c)
           case None    => desc = desc +~ UnconditionalTransfer(state_name, FSMDescriptionConfig._endStateName)
@@ -67,5 +79,11 @@ class FSMFrontEnd extends FSMBase {
         parent
       }
     }
+  }
+  class ForkContext(state_name: String, val state: ForkedFSMState) extends StateContext(state_name) {
+    implicit def toForkWrapper: ForkWrapper = new ForkWrapper(state)
+    def FSMs: Array[FSMBase] = state.fsms
+    val start_sig: Bool = state.start_sig
+    val complete_sig: Bool = state.complete_sig
   }
 }

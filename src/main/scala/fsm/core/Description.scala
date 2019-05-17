@@ -46,7 +46,7 @@ sealed case class SubFSMState(fsm: FSMBase) extends TikState {}
 case object EndState extends PseudoState {}
 sealed case class SkipState() extends PseudoState {}
 sealed case class PlaceHolderState() extends PseudoState {}
-sealed case class ForkedFSMState(fsms: Array[FSMBase], complete_sig: Bool = Wire(Bool())) extends PseudoState {}
+sealed case class ForkedFSMState(fsms: Array[FSMBase], start_sig: Bool = Wire(Bool()), complete_sig: Bool = Wire(Bool())) extends PseudoState {}
 
 
 sealed abstract class BaseTransfer {
@@ -63,11 +63,19 @@ sealed case class ConditionalTransfer(override val source: String,
                                       override val destination: String,
                                       cond: FSMDescriptionConfig.ConditionType,
                                       override val actions: BaseTransfer.ActionsType = Array()
-                                     ) extends BaseTransfer {}
+                                     ) extends BaseTransfer {
+  override def toString: String = {
+    s"ConditionalTransfer($source, $destination, $cond, ${actions.mkString})"
+  }
+}
 sealed case class UnconditionalTransfer(override val source: String,
                                         override val destination: String,
                                         override val actions: BaseTransfer.ActionsType = Array()
-                                       ) extends BaseTransfer {}
+                                       ) extends BaseTransfer {
+  override def toString: String = {
+    s"UnconditionalTransfer($source, $destination, ${actions.mkString})"//${actions.map(_.toString()).reduce(_+_)})"
+  }
+}
 
 
 object FSMDescription {

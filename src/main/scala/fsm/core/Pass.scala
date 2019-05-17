@@ -139,15 +139,19 @@ object MergeForkedFSMPass extends FSMSimplePass {
     for ((name, state) <- forkedStates) {
       val fork_fsms = state.fsms
       val complete_sigs = Array.fill(fork_fsms.length)(Wire(Bool()))
-      val start_sig = Wire(Bool())
+      val start_sig = state.start_sig
       fsm.fork_fsms = fsm.fork_fsms ++ fork_fsms.zip(complete_sigs).map(x => new ForkedFSMCompiler(start_sig, x._2).compile(x._1))
-      val n_start_act: () => Unit = () => {start_sig := false.B}
+      val n_start_act: () => Unit = () => {
+        start_sig := false.B
+      }
       fsm.default_actions = fsm.default_actions :+ n_start_act
       state.complete_sig := complete_sigs.reduce(_&&_)
-      val fork_start_name = s"_${name}_" + "ForkStart"
-      val fork_end_name = s"_${name}_" + "ForkEnd"
+      val fork_start_name = s"_Fork_${name}_" + "Start"
+      val fork_end_name = s"_Fork_${name}_" + "End"
       new_desc = new_desc + (fork_start_name, SkipState()) + (fork_end_name, SkipState())
-      new_desc = new_desc +~ UnconditionalTransfer(fork_start_name, fork_end_name, Array(() => {start_sig := true.B}))
+      new_desc = new_desc +~ UnconditionalTransfer(fork_start_name, fork_end_name, Array(() => {
+        start_sig := true.B
+      }))
       new_desc = new_desc
         .mapEdge(_.destination == name, {
           case e: ConditionalTransfer => e.copy(destination = fork_start_name )
@@ -282,7 +286,7 @@ class ForkedPass(val start_sig: Bool, val complete_sig: Bool) extends FSMSimpleP
     var desc = fsm.desc
     val complete_act: () => Unit = () => { complete_sig := true.B }
     val uncomplete_act: () => Unit = () => { complete_sig := false.B }
-    val idle_name = "_ForkedIdle"
+    val idle_name = "_ForkIdle"
     desc = desc + (idle_name, GeneralState().addAct(complete_act))
     desc = desc +~ ConditionalTransfer(idle_name, desc.entryState, start_sig)
     desc = desc.setEntry(idle_name)
