@@ -9,10 +9,19 @@ It can be used in two mode: the [FSM](#fsm-mode) mode and the [ControlFlow](#con
 ## Add To Dependencies
 You should add this library into dependencies of your projects. 
 
-Add following lines into your chisel project:
+1. Clone this project to your computer
 ```
-lazy val FSMGenerator = RootProject(uri("git://github.com/dai-pch/FSM.git#master"))
-<your project>.dependsOn(FSMGenerator)
+git clone https://github.com/dai-pch/FSM.git
+```
+2. Build project and publish to your cache
+```
+cd FSM
+sbt "publishLocal"
+```
+
+3. Add dependencies into your project's build.sbt:
+```
+libraryDependenciesi += "org.daipch" %% "fsm" % "0.3.+"
 ```
 
 ## <span id="fsm-mode">FSM Mode</span>

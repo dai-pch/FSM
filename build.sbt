@@ -28,6 +28,8 @@ def javacOptionsVersion(scalaVersion: String): Seq[String] = {
 
 name := "fsm"
 
+organization := "org.daipch"
+
 version := "0.3.1"
 
 scalaVersion := "2.11.12"
