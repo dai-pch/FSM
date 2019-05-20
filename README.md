@@ -21,7 +21,7 @@ sbt "publishLocal"
 
 3. Add dependencies into your project's build.sbt:
 ```
-libraryDependenciesi += "org.daipch" %% "fsm" % "0.3.+"
+libraryDependencies += "org.daipch" %% "fsm" % "0.3.+"
 ```
 
 ## <span id="fsm-mode">FSM Mode</span>
