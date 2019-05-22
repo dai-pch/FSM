@@ -95,6 +95,14 @@ class ControlFlowFrontEnd extends FSMBase {
     desc = desc +~ UnconditionalTransfer(cur_state, FSMDescriptionConfig._endStateName)
     cur_state = null
   }
+  protected def wait_for(cond: Bool): Unit = {
+    loop(!cond) {
+      tick {}
+    }
+  }
+  protected def tag(tag_name: String): Unit = {
+    pushState(tag_name, SkipState())
+  }
   // help function
   private def insertState(state_name: String = gen_name(),
                            state: NodeType = GeneralState()
