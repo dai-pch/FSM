@@ -191,7 +191,7 @@ class ControlFlowFrontEnd extends FSMBase {
     }
   }
   class BlockContext(val start_name: String, val end_name: String) {
-    def actLast(act: ActType): BlockContext = {
+    def actLast(act: => Unit): BlockContext = {
       val name = gen_name()
       desc = desc + (name, SkipState())
       desc = desc +~ UnconditionalTransfer(end_name, name, Array(() => act))
