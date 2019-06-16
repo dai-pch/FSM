@@ -24,6 +24,8 @@ sbt "publishLocal"
 libraryDependencies += "org.daipch" %% "fsm" % "0.3.+"
 ```
 
+**Note: Currently this project uses scala version 2.12, if you need version 2.11 please modify "build.sbt" before run "publishLocal" command.**
+
 ## <span id="fsm-mode">FSM Mode</span>
 In this mode, user can write an FSM by descriping states and it's actions. 
 
