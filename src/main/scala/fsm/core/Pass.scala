@@ -211,9 +211,13 @@ object DeleteUnreachableStatePass extends FSMSimplePass {
     val queue = mutable.Queue[String](des.entryState)
     while (queue.nonEmpty) {
       val cur = queue.dequeue()
-      for (name <- des.edgesFrom(cur).map(_.destination)) {
+      for (edge <- des.edgesFrom(cur)) {
+        val name = edge.destination
         if (!reachable.contains(name)) {
           reachable += name
+          if (debug) {
+            println(s"Debug: State ${name} reachable from edge ${edge}.")
+          }
           queue.enqueue(name)
         }
       }
@@ -267,6 +271,7 @@ object PreprocessPass extends FSMComposePass(Seq(
 ))
 
 object OptimizePass extends FSMComposePass(Seq(
+  DeleteUnreachableEdgePass,
   MergeSkipPass,
   DeleteUnreachableEdgePass,
   DeleteUnreachableStatePass
