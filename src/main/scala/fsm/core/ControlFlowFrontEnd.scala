@@ -31,10 +31,11 @@ class ControlFlowFrontEnd extends FSMBase {
     desc = desc.setEntry(cur_state)
     ctxt.copy(is_start = true)
   }
-  protected def subFSM(fsm: FSMBase): Unit = {
+  protected def subFSM(fsm: FSMBase): BlockContext = {
     val name = super.subFSM(gen_name(), fsm)
     desc = desc +~ UnconditionalTransfer(cur_state, name)
     cur_state = name
+    new BlockContext(name, name)
   }
   protected def branch(cond: ConditionType)(contents: => Unit): BranchContext = {
     val start_name = pushState(state = SkipState())
@@ -48,7 +49,7 @@ class ControlFlowFrontEnd extends FSMBase {
     val end_name = pushState(state = SkipState())
     new RunContext(start_name, end_name)
   }
-  protected def loop(cond: ConditionType)(contents: => Unit): Unit = {
+  protected def loop(cond: ConditionType)(contents: => Unit): BlockContext = {
     val start_name = pushState(state = SkipState())
     val end_name = pushState(state = SkipState(), cond = Some(!cond))
     cur_state = start_name
@@ -56,21 +57,25 @@ class ControlFlowFrontEnd extends FSMBase {
     assert(cur_state != start_name, "Must add ticks in loop.")
     desc = desc +~ UnconditionalTransfer(cur_state, end_name)
     cur_state = end_name
+    new BlockContext(start_name, end_name)
   }
-  protected def repeat(times: Int)(contents: => Unit): Unit = {
-    for (_ <- 0 to times)
+  protected def repeat(times: Int)(contents: => Unit): BlockContext = {
+    val start_name = pushState(state = SkipState())
+    for (_ <- 0 until times)
       contents
+    new BlockContext(start_name, cur_state)
   }
   protected def fork(fsms: FSMBase*): ForkWrapper = {
     val name = super.forkFSM(gen_name())(fsms)
     desc = desc +~ UnconditionalTransfer(cur_state, name)
     cur_state = name
-    new ForkWrapper(desc.findState(name).get.asInstanceOf[ForkedFSMState])
+    new ForkWrapper(name, desc.findState(name).get.asInstanceOf[ForkedFSMState])
   }
   protected def join(wrapper: ForkWrapper): Unit = {
     val join_name = pushState()
     val join_complete = pushState(state = SkipState(),
       cond = Some(wrapper.complete_sig))
+    new BlockContext(wrapper.state_name, cur_state)
   }
 //  private def repeat(times: UInt)(contents: => Unit): Unit = {
 //    val start_name = pushState(state = SkipState())
@@ -94,6 +99,14 @@ class ControlFlowFrontEnd extends FSMBase {
   protected def end: Unit = {
     desc = desc +~ UnconditionalTransfer(cur_state, FSMDescriptionConfig._endStateName)
     cur_state = null
+  }
+  protected def wait_for(cond: Bool): Unit = {
+    loop(!cond) {
+      tick {}
+    }
+  }
+  protected def tag(tag_name: String): Unit = {
+    pushState(tag_name, SkipState())
   }
   // help function
   private def insertState(state_name: String = gen_name(),
@@ -162,13 +175,28 @@ class ControlFlowFrontEnd extends FSMBase {
     def or_branch(cond: ConditionType)(contents: => Unit): this.type = {
       new_branch(Some(cond), () => contents)
     }
-    def or(contents: => Unit): Unit = {
+    def or(contents: => Unit): this.type = {
       new_branch(None, () => contents)
     }
   }
+  object BranchContext {
+    implicit def toBlockContext(brc: BranchContext): BlockContext = {
+      new BlockContext(brc.start_name, brc.end_name)
+    }
+  }
   class RunContext(val start_name: String, val end_name: String) {
-    def until(cond: ConditionType): Unit = {
+    def until(cond: ConditionType): BlockContext = {
       desc = desc +~ ConditionalTransfer(end_name, start_name, !cond)
+      new BlockContext(start_name, end_name)
+    }
+  }
+  class BlockContext(val start_name: String, val end_name: String) {
+    def actLast(act: => Unit): BlockContext = {
+      val name = gen_name()
+      desc = desc + (name, SkipState())
+      desc = desc +~ UnconditionalTransfer(end_name, name, Array(() => act))
+      cur_state = end_name
+      new BlockContext(start_name, name)
     }
   }
 }

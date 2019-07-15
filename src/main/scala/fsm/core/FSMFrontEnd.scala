@@ -74,6 +74,6 @@ class FSMFrontEnd extends FSMBase {
     }
   }
   class ForkContext(state_name: String, val state: ForkedFSMState) extends StateContext(state_name) {
-    implicit def toForkWrapper: ForkWrapper = new ForkWrapper(state)
+    implicit def toForkWrapper: ForkWrapper = new ForkWrapper(state_name, state)
   }
 }
