@@ -92,14 +92,14 @@ object AssignLastFlagPass extends FSMSimplePass {
   override protected def run(description_ : FSMDescription): FSMDescription = {
     val desc = description_
     desc.nodes.foreach({
-      case (name, GeneralState(_, last)) => last := desc.edgesFrom(name).foldRight(false.B)({
+      case (name, GeneralState(_, last)) => last := desc.edgesFrom(name).foldRight(false.B){
         case (ConditionalTransfer(_, des, cond, _), r) if des != name => cond || r
         case (UnconditionalTransfer(_, des, _), _) if des != name => true.B
         case (ConditionalTransfer(_, des, cond, _), r) if des == name => !cond && r
         case (UnconditionalTransfer(_, des, _), _) if des == name => false.B
-      })
+      }
       case (_, SubFSMState(fsm)) => fsm.desc = run(fsm.desc)
-      case others => Unit
+      case _ => ()
     })
     desc
   }
@@ -242,7 +242,7 @@ object PreCheckPass extends FSMSimplePass {
     assert(des.entryState != FSMDescriptionConfig._endStateName, "Must indicate entry state.")
     fsm match {
       case f: ControlFlowFrontEnd => assert(f.cur_state == null, "ControlFlow must ended with end method.")
-      case o => Unit
+      case o => ()
     }
     fsm
   }
