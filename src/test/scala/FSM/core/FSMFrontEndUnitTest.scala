@@ -8,15 +8,16 @@ import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 
 // test sequence 10010
 class FSMSeq10010 extends Module {
-  val io = IO(new Bundle {
+  class Ports extends Bundle {
     val input = Input(Bool())
     val output = Output(Bool())
     val state = Output(UInt())
-  })
+  }
+  val io = IO(new Ports)
 
   io.output := false.B
 
-  val fsm = InstanciateFSM(new FSMFrontEnd {
+  class StateMachine extends FSMFrontEnd {
     entryState("Idle")
       .act {
         io.output := false.B
@@ -50,7 +51,8 @@ class FSMSeq10010 extends Module {
       }
       .when(io.input === true.B).transferTo("A")
       .otherwise.transferTo("C")
-  })
+  }
+  val fsm = InstantiateFSM(new StateMachine)
 
   io.state := fsm.current_state
 }
@@ -75,18 +77,19 @@ class FSMUnitTest_Seq10010(c: FSMSeq10010) extends PeekPokeTester(c) {
 }
 
 class FSMCount21 extends Module {
-  val io = IO(new Bundle {
+  class Ports extends Bundle {
     val start = Input(Bool())
     val count = Output(UInt(5.W))
     val done = Output(Bool())
-  })
+  }
+  val io = IO(new Ports)
 
   val cnt = Reg(UInt(5.W))
 
   io.done := false.B
   io.count := 0.U
 
-  val fsm = InstanciateFSM(new FSMFrontEnd {
+  class StateMachine extends FSMFrontEnd {
     entryState("Idle")
       .when(io.start).transferTo("ClearCnt")
 
@@ -112,7 +115,8 @@ class FSMCount21 extends Module {
         io.count := cnt
       }
       .otherwise.transferToEnd
-  })
+  }
+  val fsm = InstantiateFSM(new StateMachine)
 }
 
 class FSMUnitTest_Count21(c: FSMCount21) extends PeekPokeTester(c) {
@@ -141,14 +145,15 @@ class FSMUnitTest_Count21(c: FSMCount21) extends PeekPokeTester(c) {
 }
 
 class FSMClkDiv2 extends Module {
-  val io = IO(new Bundle {
+  class Ports extends Bundle {
     val clk_o = Output(Bool())
     val state = Output(UInt())
-  })
+  }
+  val io = IO(new Ports)
 
   io.clk_o := false.B
 
-  val fsm = InstanciateFSM(new FSMFrontEnd {
+  class StateMachine extends FSMFrontEnd {
     entryState("Zero")
       .act {
         io.clk_o := false.B
@@ -160,7 +165,8 @@ class FSMClkDiv2 extends Module {
         io.clk_o := true.B
       }
       .otherwise.transferTo("Zero")
-  })
+  }
+  val fsm = InstantiateFSM(new StateMachine)
 
   io.state := fsm.current_state
 }
@@ -181,17 +187,18 @@ class FSMUnitTest_ClkDiv2(c: FSMClkDiv2) extends PeekPokeTester(c) {
 }
 
 class FSMClkDiv2_3 extends Module {
-  val io = IO(new Bundle {
+  class Ports extends Bundle {
     val clk_div_2 = Output(Bool())
     val clk_div_3 = Output(Bool())
-  })
+  }
+  val io = IO(new Ports)
 
   io.clk_div_2 := false.B
   io.clk_div_3 := false.B
 
   var forks: ForkWrapper = null
 
-  val fsm = InstanciateFSM(new FSMFrontEnd {
+  val fsm = InstantiateFSM(new FSMFrontEnd {
     entryState("Idle")
       .otherwise.transferTo("Fork")
 

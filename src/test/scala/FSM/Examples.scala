@@ -2,14 +2,15 @@ import fsm._
 import chisel3._
 
 class CFExample extends Module {
-  val io = IO(new Bundle{
+  class Ports extends Bundle {
     val in = Input(Bool())
     val output = Output(Bool())
-  })
+  }
+  val io = IO(new Ports)
 
   io.output := false.B
 
-  val fsm = InstanciateFSM(new ControlFlow {
+  val fsm = InstantiateFSM(new ControlFlow {
     start {
       io.output := false.B
     }
@@ -63,14 +64,15 @@ class CFExample extends Module {
 }
 
 class FSMExample extends Module {
-  val io = IO(new Bundle {
+  class Ports extends Bundle {
     val w_i = Input(Bool())
     val z_o = Output(Bool())
-  })
+  }
+  val io = IO(new Ports)
 
   io.z_o := false.B
 
-  val fsm = InstanciateFSM(new FSM {
+  val fsm = InstantiateFSM(new FSM {
     entryState("Idle")
       .act {
         io.z_o := false.B

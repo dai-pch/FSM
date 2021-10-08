@@ -64,7 +64,7 @@ class FSMBase(
   // helper class
 }
 
-object InstanciateFSM {
+object InstantiateFSM {
   def apply(fsm: FSMBase, debug : Boolean = false): FSMBase = {
     val desc = fsm.desc
     val compiler = IdleFSMCompiler(debug = debug)

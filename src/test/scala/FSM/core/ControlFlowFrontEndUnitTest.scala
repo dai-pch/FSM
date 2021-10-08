@@ -8,18 +8,19 @@ import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 
 
 class CFPreTest extends Module {
-  val io = IO(new Bundle{
+  class Ports extends Bundle{
     val in = Input(Bool())
     val output = Output(Bool())
     val output_reg = Output(Bool())
     val state = Output(UInt())
-  })
+  }
+  val io = IO(new Ports)
 
   io.output := false.B
   val out_reg = RegInit(false.B)
   io.output_reg := out_reg
 
-  val fsm = InstanciateFSM(new ControlFlowFrontEnd {
+  val fsm = InstantiateFSM(new ControlFlowFrontEnd {
     start {
       io.output := false.B
     }.actPre {
@@ -107,19 +108,20 @@ class CFUnitTest_PreTest(c: CFPreTest) extends PeekPokeTester(c) {
 }
 
 class CFCount21 extends Module {
-  val io = IO(new Bundle {
+  class Ports extends Bundle {
     val start = Input(Bool())
     val count = Output(UInt(5.W))
     val done = Output(Bool())
     val state = Output(UInt())
-  })
+  }
+  val io = IO(new Ports)
 
   val cnt = Reg(UInt(5.W))
 
   io.done := false.B
   io.count := 0.U
 
-  val fsm = InstanciateFSM(new ControlFlowFrontEnd {
+  val fsm = InstantiateFSM(new ControlFlowFrontEnd {
     run {
       start {}.tag("start")
     }.until(io.start)
@@ -170,14 +172,15 @@ class CFUnitTest_Count21(c: CFCount21) extends PeekPokeTester(c) {
 }
 
 class CFClkDiv2 extends Module {
-  val io = IO(new Bundle {
+  class Ports extends Bundle {
     val clk_o = Output(Bool())
     val state = Output(UInt())
-  })
+  }
+  val io = IO(new Ports)
 
   io.clk_o := false.B
 
-  val fsm = InstanciateFSM(new ControlFlowFrontEnd {
+  val fsm = InstantiateFSM(new ControlFlowFrontEnd {
     start {
       io.clk_o := false.B
     }
@@ -209,10 +212,11 @@ class CFUnitTest_ClkDiv2(c: CFClkDiv2) extends PeekPokeTester(c) {
 
 
 class CFClkDiv3_3 extends Module {
-  val io = IO(new Bundle {
+  class Ports extends Bundle {
     val clk_d_3_0 = Output(Bool())
     val clk_d_3_1 = Output(Bool())
-  })
+  }
+  val io = IO(new Ports)
 
   io.clk_d_3_0 := false.B
   io.clk_d_3_1 := false.B
@@ -234,7 +238,7 @@ class CFClkDiv3_3 extends Module {
 //  println(s"fork 0: ${fork_fsm_0.desc}")
 //  println(s"fork 1: ${fork_fsm_1.desc}")
 
-  val fsm = InstanciateFSM(new ControlFlowFrontEnd {
+  val fsm = InstantiateFSM(new ControlFlowFrontEnd {
     start {}
     forks = fork(fork_fsm_0, fork_fsm_1)
     join(forks)

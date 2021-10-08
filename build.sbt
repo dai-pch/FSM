@@ -7,7 +7,8 @@ def scalacOptionsVersion(scalaVersion: String): Seq[String] = {
     //  https://github.com/scala/bug/issues/10047
     CrossVersion.partialVersion(scalaVersion) match {
       case Some((2, scalaMajor: Long)) if scalaMajor < 12 => Seq()
-      case _ => Seq("-Xsource:2.11")
+      // case _ => Seq("-Xsource:2.11")
+      case _ => Seq()
     }
   }
 }
@@ -32,9 +33,9 @@ organization := "org.daipch"
 
 version := "0.3.2"
 
-scalaVersion := "2.11.12"
+scalaVersion := "2.12.15"
 
-crossScalaVersions := Seq("2.11.12", "2.12.4")
+crossScalaVersions := Seq("2.11.12", "2.12.15", "2.13.6")
 
 resolvers ++= Seq(
   Resolver.sonatypeRepo("snapshots"),
@@ -43,8 +44,8 @@ resolvers ++= Seq(
 
 // Provide a managed dependency on X if -DXVersion="" is supplied on the command line.
 val defaultVersions = Map(
-  "chisel3" -> "3.1.+",
-  "chisel-iotesters" -> "1.2.5+"
+  "chisel3" -> "3.4.+",
+  "chisel-iotesters" -> "1.5.4+"
   )
 
 libraryDependencies ++= Seq("chisel3","chisel-iotesters").map {
