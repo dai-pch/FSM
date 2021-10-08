@@ -40,12 +40,9 @@ val defaultVersions = Map(
   "chiseltest" -> "0.5-SNAPSHOT",
   )
 
-libraryDependencies ++= Seq("chisel3","chiseltest").map {
+libraryDependencies ++= Seq("chisel3","chisel-iotesters").map {
   dep: String => "edu.berkeley.cs" %% dep % sys.props.getOrElse(dep + "Version", defaultVersions(dep)) 
-} ++ Seq(
-  "org.scalatest" %% "scalatest" % "3.2.9",
-  // "org.scalatestplus" %% "scalacheck-1-14" % "3.2.2.0",
-)
+}
 
 scalacOptions ++= scalacOptionsVersion(scalaVersion.value)
 

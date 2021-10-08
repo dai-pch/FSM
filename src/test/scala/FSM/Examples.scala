@@ -1,5 +1,6 @@
 import fsm._
 import chisel3._
+import chisel3.stage.ChiselGeneratorAnnotation
 
 class CFExample extends Module {
   class Ports extends Bundle {
@@ -96,6 +97,15 @@ class FSMExample extends Module {
 }
 
 object GenExamples extends App {
-  chisel3.Driver.execute(args, () => new FSMExample)
-  chisel3.Driver.execute(args, () => new CFExample)
+  (new chisel3.stage.ChiselStage).execute(args, 
+    Seq(ChiselGeneratorAnnotation(
+      () => new FSMExample,
+    )),
+  )
+
+  (new chisel3.stage.ChiselStage).execute(args, 
+    Seq(ChiselGeneratorAnnotation(
+      () => new CFExample,
+    )),
+  )
 }
