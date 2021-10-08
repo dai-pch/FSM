@@ -20,7 +20,7 @@ def javacOptionsVersion(scalaVersion: String): Seq[String] = {
 
 name := "fsm"
 
-organization := "org.daipch"
+organization := "io.github.daipch"
 
 version := "0.4-SNAPSHOT"
 
